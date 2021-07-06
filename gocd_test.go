@@ -65,11 +65,13 @@ func TestFull(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	p, err := New()
+	p, err := NewMode(RE)
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	t.Log(len(tests), "tests loaded")
+	c := 0
 	for _, tc := range tests {
 		if tc.Position == "" {
 			t.Fatalf("missing position for test entry %q", tc.Name)
@@ -86,6 +88,7 @@ func TestFull(t *testing.T) {
 			continue
 		}
 
+		c++
 		res, err := p.Parse(tc.Name)
 		if err != nil {
 			t.Fatal(err)
@@ -98,4 +101,5 @@ func TestFull(t *testing.T) {
 		}
 	}
 
+	t.Log(c, "tests completed")
 }

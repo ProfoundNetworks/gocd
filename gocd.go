@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"os"
 	"regexp"
+	"strings"
 
 	"github.com/flier/gohs/hyperscan"
 	"gopkg.in/yaml.v2"
@@ -20,7 +21,7 @@ import (
 
 const DefaultDataset = "data/company_designator.yml"
 const StrEndBefore = `\s*[\s\pP]\s*\(?`
-const StrEndAfter = `\)?\s*$`
+const StrEndAfter = `\)?\s*`
 
 var LangContinua = map[string]bool{"zh": true, "ja": true, "ko": true}
 
@@ -30,6 +31,14 @@ const (
 	None PositionType = iota
 	Begin
 	End
+)
+
+type Mode int
+
+const (
+	Null Mode = iota
+	HS
+	RE
 )
 
 func (p PositionType) String() string {
@@ -51,6 +60,8 @@ type dataset map[string]entry
 type Parser struct {
 	re     Remap
 	ds     *dataset
+	mode   Mode
+	reEnd  *regexp.Regexp
 	dbEnd  *hyperscan.BlockDatabase
 	scrEnd *hyperscan.Scratch
 }
@@ -89,8 +100,7 @@ func loadDataset(filepath string) (*dataset, error) {
 	return &ds, nil
 }
 
-func compilePattern(des string, t PositionType, re Remap) *hyperscan.Pattern {
-	// Prep s for matching
+func escapeDes(des string, re Remap) string {
 	// Periods are treated as optional literals, with optional trailing commas
 	// and/or whitespace
 	des = re["Period"].ReplaceAllString(des, `\.?,?\s*`)
@@ -98,12 +108,45 @@ func compilePattern(des string, t PositionType, re Remap) *hyperscan.Pattern {
 	des = re["Space"].ReplaceAllString(des, `,?\s+`)
 	// Escape parentheses
 	des = re["Paren"].ReplaceAllString(des, `\$1`)
+	return des
+}
 
+func compileREPattern(ds *dataset, t PositionType, re Remap) string {
+	var patterns []string
+
+	for k, e := range *ds {
+		// FIXME: dev
+		/*
+			if k != "Limited Liability Company" {
+				continue
+			}
+		*/
+
+		// Add key to patterns
+		patterns = append(patterns, escapeDes(k, re))
+
+		// Add AbbrStd to patterns
+		/*
+			if e.AbbrStd != "" {
+				patterns = append(patterns, escapeDes(e.AbbrStd, re))
+			}
+		*/
+
+		// Add Abbrs to patterns
+		for _, a := range e.Abbr {
+			patterns = append(patterns, escapeDes(a, re))
+		}
+	}
+
+	return strings.Join(patterns, "|")
+}
+
+func compileHSPattern(des string, t PositionType, re Remap) *hyperscan.Pattern {
 	// Wrap des appropriately for position
 	var s string
 	switch t {
 	case End:
-		s = StrEndBefore + des + StrEndAfter
+		s = StrEndBefore + escapeDes(des, re) + StrEndAfter + `$`
 	default:
 		fmt.Fprintf(os.Stderr, "unsupported position %q\n", t.String())
 		os.Exit(1)
@@ -113,21 +156,23 @@ func compilePattern(des string, t PositionType, re Remap) *hyperscan.Pattern {
 	return hyperscan.NewPattern(s, hyperscan.Caseless|hyperscan.SomLeftMost)
 }
 
-func compilePatterns(ds *dataset, t PositionType, re Remap) []*hyperscan.Pattern {
+func compileHSPatterns(ds *dataset, t PositionType, re Remap) []*hyperscan.Pattern {
 	var patterns []*hyperscan.Pattern
 
 	for k, e := range *ds {
 		// Add key to patterns
-		patterns = append(patterns, compilePattern(k, t, re))
+		patterns = append(patterns, compileHSPattern(k, t, re))
 
 		// Add AbbrStd to patterns
-		if e.AbbrStd != "" {
-			patterns = append(patterns, compilePattern(e.AbbrStd, t, re))
-		}
+		/*
+			if e.AbbrStd != "" {
+				patterns = append(patterns, compileHSPattern(e.AbbrStd, t, re))
+			}
+		*/
 
 		// Add Abbrs to patterns
 		for _, a := range e.Abbr {
-			patterns = append(patterns, compilePattern(a, t, re))
+			patterns = append(patterns, compileHSPattern(a, t, re))
 		}
 	}
 
@@ -139,6 +184,11 @@ func compilePatterns(ds *dataset, t PositionType, re Remap) []*hyperscan.Pattern
 
 // New returns a new Parser using the default company designator dataset
 func New() (*Parser, error) {
+	return NewMode(RE)
+}
+
+// New returns a new Parser using the default company designator dataset
+func NewMode(mode Mode) (*Parser, error) {
 	p := Parser{}
 
 	re := make(Remap)
@@ -147,7 +197,7 @@ func New() (*Parser, error) {
 	re["Paren"] = regexp.MustCompile(`([()])`)
 	re["LeftParen"] = regexp.MustCompile(`\(`)
 	re["RightParen"] = regexp.MustCompile(`\)`)
-	re["EndBefore"] = regexp.MustCompile(`^` + StrEndBefore)
+	re["EndBefore"] = regexp.MustCompile(StrEndBefore)
 	re["EndAfter"] = regexp.MustCompile(StrEndAfter + `$`)
 	p.re = re
 
@@ -158,21 +208,44 @@ func New() (*Parser, error) {
 	p.ds = ds
 
 	// Compile End patterns
-	patterns := compilePatterns(ds, End, re)
-	//fmt.Fprintf(os.Stderr, "+ loading hyperscan db...\n")
-	db, err := hyperscan.NewBlockDatabase(patterns...)
-	if err != nil {
-		return nil, err
+	switch mode {
+	case RE:
+		p.mode = RE
+		pattern := compileREPattern(ds, End, re)
+		//fmt.Fprintf(os.Stderr, "+ REPattern: %s\n", pattern)
+		p.reEnd = regexp.MustCompile(`(?i)` +
+			StrEndBefore + `(` + pattern + `)` + StrEndAfter + `$`)
+		//fmt.Fprintf(os.Stderr, "+ reEnd: %s\n", p.reEnd)
+
+	case HS:
+		p.mode = HS
+		patterns := compileHSPatterns(ds, End, re)
+		//fmt.Fprintf(os.Stderr, "+ loading hyperscan db...\n")
+		db, err := hyperscan.NewBlockDatabase(patterns...)
+		if err != nil {
+			return nil, err
+		}
+		p.dbEnd = &db
+		//fmt.Fprintf(os.Stderr, "+ setting up scratch space...\n")
+		scratch, err := hyperscan.NewScratch(db)
+		if err != nil {
+			return nil, err
+		}
+		p.scrEnd = scratch
 	}
-	p.dbEnd = &db
-	//fmt.Fprintf(os.Stderr, "+ setting up scratch space...\n")
-	scratch, err := hyperscan.NewScratch(db)
-	if err != nil {
-		return nil, err
-	}
-	p.scrEnd = scratch
 
 	return &p, nil
+}
+
+// Parse matches an input company name string against the company
+// designator dataset and returns a Result object containing match
+// results and any parsed components
+func (p *Parser) Parse(input string) (*Result, error) {
+	if p.mode == RE {
+		return p.ParseRE(input)
+	}
+
+	return p.ParseHyperscan(input)
 }
 
 // hyperscan match function - captures match elements to Context struct
@@ -193,10 +266,7 @@ func hsMatchHandler(id uint, from, to uint64, flags uint, context interface{}) e
 	return nil
 }
 
-// Parse matches an input company name string against the company
-// designator dataset and returns a Result object containing match
-// results and any parsed components
-func (p *Parser) Parse(input string) (*Result, error) {
+func (p *Parser) ParseHyperscan(input string) (*Result, error) {
 	res := Result{Input: input, ShortName: input}
 	ctx := Context{}
 	ctx.in = []byte(input)
@@ -222,6 +292,23 @@ func (p *Parser) Parse(input string) (*Result, error) {
 			des = "(" + des
 		}
 		res.Designator = des
+	}
+
+	return &res, nil
+}
+
+func (p *Parser) ParseRE(input string) (*Result, error) {
+	res := Result{Input: input, ShortName: input}
+	ctx := Context{}
+	ctx.in = []byte(input)
+
+	// Designators are usually final, so try end matching first
+	matches := p.reEnd.FindStringSubmatch(input)
+	if matches != nil {
+		res.Matched = true
+		res.ShortName = p.reEnd.ReplaceAllString(input, "")
+		res.Designator = matches[1]
+		res.Position = End
 	}
 
 	return &res, nil
