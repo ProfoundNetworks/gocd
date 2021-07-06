@@ -4,6 +4,7 @@ gocd is a go library for matching and parsing company designators
 */
 
 //go:generate cp -p ../company_designator/company_designator.yml data
+//go:generate cp -p ../../cpan/Business-CompanyDesignator/t/t10/data.yml data/tests.yml
 
 package gocd
 
@@ -18,6 +19,8 @@ import (
 )
 
 const DefaultDataset = "data/company_designator.yml"
+
+var LangContinua = map[string]bool{"zh": true, "ja": true, "ko": true}
 
 type PositionType int
 
@@ -119,20 +122,13 @@ func compilePattern(des string, t PositionType) *hyperscan.Pattern {
 	}
 
 	// Compile to hyperscan pattern
-	return hyperscan.NewPattern(s, hyperscan.SomLeftMost)
+	return hyperscan.NewPattern(s, hyperscan.Caseless|hyperscan.SomLeftMost)
 }
 
 func compilePatterns(ds *dataset, t PositionType) []*hyperscan.Pattern {
 	var patterns []*hyperscan.Pattern
 
 	for k, e := range *ds {
-		// FIXME: dev
-		/*
-			if k != "Limited Liability Company" {
-				continue
-			}
-		*/
-
 		// Add key to patterns
 		patterns = append(patterns, compilePattern(k, t))
 
@@ -181,6 +177,7 @@ func New() (*Parser, error) {
 	return &p, nil
 }
 
+// hyperscan match function - captures match elements to Context struct
 func hsMatchHandler(id uint, from, to uint64, flags uint, context interface{}) error {
 	ctx := context.(*Context)
 	if to > 0 {
