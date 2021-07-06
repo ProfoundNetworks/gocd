@@ -19,6 +19,8 @@ import (
 )
 
 const DefaultDataset = "data/company_designator.yml"
+const StrEndBefore = `\s*[\s\pP]\s*\(?`
+const StrEndAfter = `\)?\s*$`
 
 var LangContinua = map[string]bool{"zh": true, "ja": true, "ko": true}
 
@@ -43,9 +45,11 @@ type entry struct {
 	Doc      string   `yaml:"doc,omitempty"`
 }
 
+type Remap map[string]*regexp.Regexp
 type dataset map[string]entry
 
 type Parser struct {
+	re     Remap
 	ds     *dataset
 	dbEnd  *hyperscan.BlockDatabase
 	scrEnd *hyperscan.Scratch
@@ -68,22 +72,6 @@ type Result struct {
 	Position   PositionType // The Designator position, if found
 }
 
-// Various regexes
-var rePeriod, reSpace, reParen *regexp.Regexp
-var strEndBefore, strEndAfter string
-var reEndBefore, reEndAfter *regexp.Regexp
-
-// Initialise regexes
-func init() {
-	rePeriod = regexp.MustCompile(`\.`)
-	reSpace = regexp.MustCompile(`\s+`)
-	reParen = regexp.MustCompile(`([()])`)
-	strEndBefore = `\s*[\s\pP]\s*\(?`
-	strEndAfter = `\)?\s*$`
-	reEndBefore = regexp.MustCompile(`^` + strEndBefore)
-	reEndAfter = regexp.MustCompile(strEndAfter + `$`)
-}
-
 func loadDataset(filepath string) (*dataset, error) {
 	data, err := ioutil.ReadFile(filepath)
 	if err != nil {
@@ -101,21 +89,21 @@ func loadDataset(filepath string) (*dataset, error) {
 	return &ds, nil
 }
 
-func compilePattern(des string, t PositionType) *hyperscan.Pattern {
+func compilePattern(des string, t PositionType, re Remap) *hyperscan.Pattern {
 	// Prep s for matching
 	// Periods are treated as optional literals, with optional trailing commas
 	// and/or whitespace
-	des = rePeriod.ReplaceAllString(des, `\.?,?\s*`)
+	des = re["Period"].ReplaceAllString(des, `\.?,?\s*`)
 	// Embedded spaces can optionally include leading commas
-	des = reSpace.ReplaceAllString(des, `,?\s+`)
+	des = re["Space"].ReplaceAllString(des, `,?\s+`)
 	// Escape parentheses
-	des = reParen.ReplaceAllString(des, `\$1`)
+	des = re["Paren"].ReplaceAllString(des, `\$1`)
 
 	// Wrap des appropriately for position
 	var s string
 	switch t {
 	case End:
-		s = strEndBefore + des + strEndAfter
+		s = StrEndBefore + des + StrEndAfter
 	default:
 		fmt.Fprintf(os.Stderr, "unsupported position %q\n", t.String())
 		os.Exit(1)
@@ -125,21 +113,21 @@ func compilePattern(des string, t PositionType) *hyperscan.Pattern {
 	return hyperscan.NewPattern(s, hyperscan.Caseless|hyperscan.SomLeftMost)
 }
 
-func compilePatterns(ds *dataset, t PositionType) []*hyperscan.Pattern {
+func compilePatterns(ds *dataset, t PositionType, re Remap) []*hyperscan.Pattern {
 	var patterns []*hyperscan.Pattern
 
 	for k, e := range *ds {
 		// Add key to patterns
-		patterns = append(patterns, compilePattern(k, t))
+		patterns = append(patterns, compilePattern(k, t, re))
 
 		// Add AbbrStd to patterns
 		if e.AbbrStd != "" {
-			patterns = append(patterns, compilePattern(e.AbbrStd, t))
+			patterns = append(patterns, compilePattern(e.AbbrStd, t, re))
 		}
 
 		// Add Abbrs to patterns
 		for _, a := range e.Abbr {
-			patterns = append(patterns, compilePattern(a, t))
+			patterns = append(patterns, compilePattern(a, t, re))
 		}
 	}
 
@@ -153,6 +141,16 @@ func compilePatterns(ds *dataset, t PositionType) []*hyperscan.Pattern {
 func New() (*Parser, error) {
 	p := Parser{}
 
+	re := make(Remap)
+	re["Period"] = regexp.MustCompile(`\.`)
+	re["Space"] = regexp.MustCompile(`\s+`)
+	re["Paren"] = regexp.MustCompile(`([()])`)
+	re["LeftParen"] = regexp.MustCompile(`\(`)
+	re["RightParen"] = regexp.MustCompile(`\)`)
+	re["EndBefore"] = regexp.MustCompile(`^` + StrEndBefore)
+	re["EndAfter"] = regexp.MustCompile(StrEndAfter + `$`)
+	p.re = re
+
 	ds, err := loadDataset(DefaultDataset)
 	if err != nil {
 		return nil, err
@@ -160,7 +158,7 @@ func New() (*Parser, error) {
 	p.ds = ds
 
 	// Compile End patterns
-	patterns := compilePatterns(ds, End)
+	patterns := compilePatterns(ds, End, re)
 	//fmt.Fprintf(os.Stderr, "+ loading hyperscan db...\n")
 	db, err := hyperscan.NewBlockDatabase(patterns...)
 	if err != nil {
@@ -217,8 +215,12 @@ func (p *Parser) Parse(input string) (*Result, error) {
 		res.Position = End
 
 		des := string(ctx.match)
-		des = reEndBefore.ReplaceAllString(des, "")
-		des = reEndAfter.ReplaceAllString(des, "")
+		des = p.re["EndBefore"].ReplaceAllString(des, "")
+		des = p.re["EndAfter"].ReplaceAllString(des, "")
+		// Handle corner case where a left-parenthesis is wrongly stripped
+		if p.re["RightParen"].MatchString(des) && !p.re["LeftParen"].MatchString(des) {
+			des = "(" + des
+		}
 		res.Designator = des
 	}
 
