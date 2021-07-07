@@ -80,24 +80,27 @@ func loadStripTests() []TestCase {
 
 	// Strip currently unsupported tests
 	var tests2 []TestCase
+	s := 0
+	mid := 0
 	for _, tc := range tests {
 		if tc.Position == "" {
 			fatal(fmt.Sprintf("missing position for test entry %q", tc.Name))
 		}
 		if tc.Skip || tc.SkipUnlessLang {
-			continue
-		}
-		// We don't handle LangContinua languages yet
-		if ok := LangContinua[tc.Lang]; ok {
+			s++
 			continue
 		}
 		// We don't handle embedded matches yet
 		if tc.Position == "mid" {
+			mid++
 			continue
 		}
 
 		tests2 = append(tests2, tc)
 	}
+
+	//fmt.Fprintf(os.Stderr, "+ %d skip tests ignored\n", s)
+	//fmt.Fprintf(os.Stderr, "+ %d mid tests ignored\n", mid)
 
 	return tests2
 }
@@ -110,7 +113,7 @@ func TestFull(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Log(len(tests), "tests loaded")
+	fmt.Fprintf(os.Stderr, "+ %d tests loaded\n", len(tests))
 	c := 0
 	for _, tc := range tests {
 		res, err := p.Parse(tc.Name)
@@ -132,7 +135,7 @@ func TestFull(t *testing.T) {
 		}
 	}
 
-	t.Log(c, "tests completed")
+	fmt.Fprintf(os.Stderr, "+ %d tests completed\n", c)
 }
 
 func BenchmarkRE(b *testing.B) {

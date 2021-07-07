@@ -20,16 +20,20 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+var LangContinua = map[string]bool{"zh": true, "ja": true, "ko": true}
+
 const (
 	DefaultDataset = "data/company_designator.yml"
 	// TODO: should the space/punct character class here have '+'?
-	StrEndBefore   = `^\s*(.*?)\s*[\s\pP]\s*\(?`
-	StrEndAfter    = `\)?\s*$`
 	StrBeginBefore = `^\s*\(?`
 	StrBeginAfter  = `\)?[\s\pP]\s*(.*?)\s*$`
+	StrEndBefore   = `^\s*(.*?)\s*[\s\pP]\s*\(?`
+	StrEndAfter    = `\)?\s*$`
+	// In languages with continuous scripts, we don't require a word
+	// break ([\s\pP] above) before designators
+	StrEndContBefore = `^\s*(.*?)\s*\(?`
+	StrEndContAfter  = `\)?\s*$`
 )
-
-var LangContinua = map[string]bool{"zh": true, "ja": true, "ko": true}
 
 type PositionType int
 
@@ -37,6 +41,7 @@ const (
 	None PositionType = iota
 	Begin
 	End
+	EndCont
 )
 
 type Mode int
@@ -48,7 +53,7 @@ const (
 )
 
 func (p PositionType) String() string {
-	return [...]string{"none", "begin", "end"}[p]
+	return [...]string{"none", "begin", "end", "end_cont"}[p]
 }
 
 type entry struct {
@@ -64,13 +69,14 @@ type Remap map[string]*regexp.Regexp
 type dataset map[string]entry
 
 type Parser struct {
-	re      Remap
-	ds      *dataset
-	mode    Mode
-	reEnd   *regexp.Regexp
-	reBegin *regexp.Regexp
-	dbEnd   *hyperscan.BlockDatabase
-	scrEnd  *hyperscan.Scratch
+	re        Remap
+	ds        *dataset
+	mode      Mode
+	reBegin   *regexp.Regexp
+	reEnd     *regexp.Regexp
+	reEndCont *regexp.Regexp
+	dbEnd     *hyperscan.BlockDatabase
+	scrEnd    *hyperscan.Scratch
 }
 
 type Context struct {
@@ -151,6 +157,10 @@ func compileREPatterns(ds *dataset, t PositionType, re Remap) string {
 		if t == Begin && !e.Lead {
 			continue
 		}
+		// If t is EndCont, restrict to languages in LangContinua
+		if t == EndCont && !LangContinua[e.Lang] {
+			continue
+		}
 
 		// Add long to patterns
 		patterns = addPattern(patterns, long, re)
@@ -164,6 +174,10 @@ func compileREPatterns(ds *dataset, t PositionType, re Remap) string {
 
 		// Add Abbrs to patterns
 		for _, a := range e.Abbr {
+			// Only add non-ASCII abbreviations as continuous
+			if t == EndCont && re["ASCII"].MatchString(a) {
+				continue
+			}
 			patterns = addPattern(patterns, a, re)
 		}
 	}
@@ -229,10 +243,11 @@ func NewMode(mode Mode) (*Parser, error) {
 	re := make(Remap)
 	re["Period"] = regexp.MustCompile(`\.`)
 	re["Space"] = regexp.MustCompile(`\s+`)
-	re["Paren"] = regexp.MustCompile(`([()])`)
+	re["Paren"] = regexp.MustCompile("([()\uff08\uff09])")
 	re["LeftParen"] = regexp.MustCompile(`\(`)
 	re["RightParen"] = regexp.MustCompile(`\)`)
 	re["UnicodeMarks"] = regexp.MustCompile(`\pM`)
+	re["ASCII"] = regexp.MustCompile("^[[:ascii:]]+$")
 	// HS-only below
 	re["EndBefore"] = regexp.MustCompile(StrEndBefore)
 	re["EndAfter"] = regexp.MustCompile(StrEndAfter)
@@ -252,12 +267,17 @@ func NewMode(mode Mode) (*Parser, error) {
 		//fmt.Fprintf(os.Stderr, "+ endPattern: %s\n", endPattern)
 		beginPattern := compileREPatterns(ds, Begin, re)
 		//fmt.Fprintf(os.Stderr, "+ beginPattern: %s\n", beginPattern)
+		endContPattern := compileREPatterns(ds, EndCont, re)
+		//fmt.Fprintf(os.Stderr, "+ endContPattern: %s\n", endContPattern)
 		p.reEnd = regexp.MustCompile(`(?i)` +
 			StrEndBefore + `(` + endPattern + `)` + StrEndAfter)
 		//fmt.Fprintf(os.Stderr, "+ reEnd: %s\n", p.reEnd)
 		p.reBegin = regexp.MustCompile(`(?i)` +
 			StrBeginBefore + `(` + beginPattern + `)` + StrBeginAfter)
 		//fmt.Fprintf(os.Stderr, "+ reBegin: %s\n", p.reBegin)
+		p.reEndCont = regexp.MustCompile(`(?i)` +
+			StrEndContBefore + `(` + endContPattern + `)` + StrEndContAfter)
+		//fmt.Fprintf(os.Stderr, "+ reEndCont: %s\n", p.reEndCont)
 
 	case HS:
 		p.mode = HS
@@ -352,6 +372,20 @@ func (p *Parser) ParseRE(input string) (*Result, error) {
 		res.Matched = true
 		res.ShortName = norm.NFC.String(matches[1])
 		res.Designator = norm.NFC.String(matches[2])
+		res.Position = End
+		return &res, nil
+	}
+
+	// No final designator - retry without a word break for the subset of
+	// languages that use continuous scripts (see LangContinua above)
+	// Strip all parentheses for continuous script matches
+	inputNFDStripped := p.re["Paren"].ReplaceAllString(inputNFD, "")
+	matches = p.reEndCont.FindStringSubmatch(inputNFDStripped)
+	if matches != nil {
+		res.Matched = true
+		res.ShortName = norm.NFC.String(matches[1])
+		res.Designator = norm.NFC.String(matches[2])
+		// Note we deliberately use End here rather than EndCont
 		res.Position = End
 		return &res, nil
 	}
