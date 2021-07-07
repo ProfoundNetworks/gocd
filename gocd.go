@@ -23,10 +23,10 @@ import (
 const (
 	DefaultDataset = "data/company_designator.yml"
 	// TODO: should the space/punct character class here have '+'?
-	StrEndBefore   = `\s*[\s\pP]\s*\(?`
-	StrEndAfter    = `\)?\s*`
-	StrBeginBefore = `\s*\(?`
-	StrBeginAfter  = `\)?[\s\pP]\s*`
+	StrEndBefore   = `^\s*(.*?)\s*[\s\pP]\s*\(?`
+	StrEndAfter    = `\)?\s*$`
+	StrBeginBefore = `^\s*\(?`
+	StrBeginAfter  = `\)?[\s\pP]\s*(.*?)\s*$`
 )
 
 var LangContinua = map[string]bool{"zh": true, "ja": true, "ko": true}
@@ -181,7 +181,7 @@ func compileHSPattern(des string, t PositionType, re Remap) *hyperscan.Pattern {
 	var s string
 	switch t {
 	case End:
-		s = StrEndBefore + escapeDes(des, re) + StrEndAfter + `$`
+		s = StrEndBefore + escapeDes(des, re) + StrEndAfter
 	default:
 		fmt.Fprintf(os.Stderr, "unsupported position %q\n", t.String())
 		os.Exit(1)
@@ -232,10 +232,10 @@ func NewMode(mode Mode) (*Parser, error) {
 	re["Paren"] = regexp.MustCompile(`([()])`)
 	re["LeftParen"] = regexp.MustCompile(`\(`)
 	re["RightParen"] = regexp.MustCompile(`\)`)
-	re["EndBefore"] = regexp.MustCompile(StrEndBefore)
-	re["EndAfter"] = regexp.MustCompile(StrEndAfter + `$`)
-	re["EndAfter"] = regexp.MustCompile(StrEndAfter + `$`)
 	re["UnicodeMarks"] = regexp.MustCompile(`\pM`)
+	// HS-only below
+	re["EndBefore"] = regexp.MustCompile(StrEndBefore)
+	re["EndAfter"] = regexp.MustCompile(StrEndAfter)
 	p.re = re
 
 	ds, err := loadDataset(DefaultDataset)
@@ -253,10 +253,10 @@ func NewMode(mode Mode) (*Parser, error) {
 		beginPattern := compileREPatterns(ds, Begin, re)
 		//fmt.Fprintf(os.Stderr, "+ beginPattern: %s\n", beginPattern)
 		p.reEnd = regexp.MustCompile(`(?i)` +
-			StrEndBefore + `(` + endPattern + `)` + StrEndAfter + `$`)
+			StrEndBefore + `(` + endPattern + `)` + StrEndAfter)
 		//fmt.Fprintf(os.Stderr, "+ reEnd: %s\n", p.reEnd)
 		p.reBegin = regexp.MustCompile(`(?i)` +
-			`^` + StrBeginBefore + `(` + beginPattern + `)` + StrBeginAfter)
+			StrBeginBefore + `(` + beginPattern + `)` + StrBeginAfter)
 		//fmt.Fprintf(os.Stderr, "+ reBegin: %s\n", p.reBegin)
 
 	case HS:
@@ -350,8 +350,8 @@ func (p *Parser) ParseRE(input string) (*Result, error) {
 	matches := p.reEnd.FindStringSubmatch(inputNFD)
 	if matches != nil {
 		res.Matched = true
-		res.ShortName = norm.NFC.String(p.reEnd.ReplaceAllString(inputNFD, ""))
-		res.Designator = norm.NFC.String(matches[1])
+		res.ShortName = norm.NFC.String(matches[1])
+		res.Designator = norm.NFC.String(matches[2])
 		res.Position = End
 		return &res, nil
 	}
@@ -360,7 +360,7 @@ func (p *Parser) ParseRE(input string) (*Result, error) {
 	matches = p.reBegin.FindStringSubmatch(inputNFD)
 	if matches != nil {
 		res.Matched = true
-		res.ShortName = norm.NFC.String(p.reBegin.ReplaceAllString(inputNFD, ""))
+		res.ShortName = norm.NFC.String(matches[2])
 		res.Designator = norm.NFC.String(matches[1])
 		res.Position = Begin
 		return &res, nil
