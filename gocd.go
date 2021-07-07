@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/flier/gohs/hyperscan"
+	"golang.org/x/text/unicode/norm"
 	"gopkg.in/yaml.v2"
 )
 
@@ -111,30 +112,45 @@ func escapeDes(des string, re Remap) string {
 	return des
 }
 
-func compileREPattern(ds *dataset, t PositionType, re Remap) string {
+func addPattern(patterns []string, s string, re Remap) []string {
+	// Normalise s to NFD before adding
+	s = norm.NFD.String(s)
+
+	// Do our standard designator escaping
+	s = escapeDes(s, re)
+
+	// Add s to patterns
+	patterns = append(patterns, s)
+
+	// If s contains unicode diacritics, also add a stripped version
+	s2 := re["UnicodeMarks"].ReplaceAllString(s, "")
+	if s2 != s {
+		patterns = append(patterns, s2)
+	}
+
+	return patterns
+}
+
+func compileREPatterns(ds *dataset, t PositionType, re Remap) string {
 	var patterns []string
 
-	for k, e := range *ds {
-		// FIXME: dev
-		/*
-			if k != "Limited Liability Company" {
-				continue
-			}
-		*/
-
-		// Add key to patterns
-		patterns = append(patterns, escapeDes(k, re))
+	for long, e := range *ds {
+		// Add long to patterns
+		//patterns = append(patterns, escapeDes(long, re))
+		patterns = addPattern(patterns, long, re)
 
 		// Add AbbrStd to patterns
 		/*
 			if e.AbbrStd != "" {
-				patterns = append(patterns, escapeDes(e.AbbrStd, re))
+				//patterns = append(patterns, escapeDes(e.AbbrStd, re))
+				patterns = addPattern(patterns, e.AbbrStd, re)
 			}
 		*/
 
 		// Add Abbrs to patterns
 		for _, a := range e.Abbr {
-			patterns = append(patterns, escapeDes(a, re))
+			//patterns = append(patterns, escapeDes(a, re))
+			patterns = addPattern(patterns, a, re)
 		}
 	}
 
@@ -199,6 +215,8 @@ func NewMode(mode Mode) (*Parser, error) {
 	re["RightParen"] = regexp.MustCompile(`\)`)
 	re["EndBefore"] = regexp.MustCompile(StrEndBefore)
 	re["EndAfter"] = regexp.MustCompile(StrEndAfter + `$`)
+	re["EndAfter"] = regexp.MustCompile(StrEndAfter + `$`)
+	re["UnicodeMarks"] = regexp.MustCompile(`\pM`)
 	p.re = re
 
 	ds, err := loadDataset(DefaultDataset)
@@ -211,7 +229,7 @@ func NewMode(mode Mode) (*Parser, error) {
 	switch mode {
 	case RE:
 		p.mode = RE
-		pattern := compileREPattern(ds, End, re)
+		pattern := compileREPatterns(ds, End, re)
 		//fmt.Fprintf(os.Stderr, "+ REPattern: %s\n", pattern)
 		p.reEnd = regexp.MustCompile(`(?i)` +
 			StrEndBefore + `(` + pattern + `)` + StrEndAfter + `$`)
@@ -298,16 +316,18 @@ func (p *Parser) ParseHyperscan(input string) (*Result, error) {
 }
 
 func (p *Parser) ParseRE(input string) (*Result, error) {
-	res := Result{Input: input, ShortName: input}
+	inputNFD := norm.NFD.String(input)
+	inputNFC := norm.NFC.String(input)
+	res := Result{Input: inputNFC, ShortName: inputNFC}
 	ctx := Context{}
-	ctx.in = []byte(input)
+	ctx.in = []byte(inputNFD)
 
 	// Designators are usually final, so try end matching first
-	matches := p.reEnd.FindStringSubmatch(input)
+	matches := p.reEnd.FindStringSubmatch(inputNFD)
 	if matches != nil {
 		res.Matched = true
-		res.ShortName = p.reEnd.ReplaceAllString(input, "")
-		res.Designator = matches[1]
+		res.ShortName = norm.NFC.String(p.reEnd.ReplaceAllString(inputNFD, ""))
+		res.Designator = norm.NFC.String(matches[1])
 		res.Position = End
 	}
 

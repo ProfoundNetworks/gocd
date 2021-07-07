@@ -110,7 +110,6 @@
   des_std: GmbH
   lang: de
   position: end
-  skip: Y
 -
   name: Kernkraftwerk Brokdorf GmbH & Co OHG
   before: Kernkraftwerk Brokdorf
@@ -146,7 +145,6 @@
   des_std: Ltée
   lang: fr
   position: end
-  skip: Y
 -
   name: Woon-En Zorgcentrum Onze-Lieve-Vrouw Van Antwerpen Verkort Olva VZW
   before: Woon-En Zorgcentrum Onze-Lieve-Vrouw Van Antwerpen Verkort Olva
@@ -168,7 +166,6 @@
   des_std: Sociedad Anónima
   lang: es
   position: end
-  skip: Y
 -
   name: Verein Fuer Jugendfuersorge und Jugendpflege E. V.
   before: Verein Fuer Jugendfuersorge und Jugendpflege
@@ -271,7 +268,6 @@
   des_std: Korlátolt Felelősségű Társaság
   lang: hu
   position: end
-  skip: Y
 -
   name: Chattanooga Endoscopy ASC LLC
   before: Chattanooga Endoscopy
@@ -433,7 +429,6 @@
   des_std: '& Co.'
   lang: en
   position: end
-  skip: Y
 -
   name: 'Hakuyosha   Company   Ltd.'
   before: Hakuyosha
@@ -581,7 +576,6 @@
   des_std: LLC
   lang: en
   position: end
-  skip: Y
 -
   name: ADVANSOFT (L.L.C)
   before: ADVANSOFT
@@ -715,7 +709,6 @@
   des_std: ЗАО
   lang: ru
   position: end
-  skip: Y
 -
   name: 101 Administraties en Belastingadviezen VOF
   before: 101 Administraties en Belastingadviezen
