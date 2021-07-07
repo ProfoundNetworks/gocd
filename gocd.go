@@ -20,9 +20,14 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-const DefaultDataset = "data/company_designator.yml"
-const StrEndBefore = `\s*[\s\pP]\s*\(?`
-const StrEndAfter = `\)?\s*`
+const (
+	DefaultDataset = "data/company_designator.yml"
+	// TODO: should the space/punct character class here have '+'?
+	StrEndBefore   = `\s*[\s\pP]\s*\(?`
+	StrEndAfter    = `\)?\s*`
+	StrBeginBefore = `\s*\(?`
+	StrBeginAfter  = `\)?[\s\pP]\s*`
+)
 
 var LangContinua = map[string]bool{"zh": true, "ja": true, "ko": true}
 
@@ -48,23 +53,24 @@ func (p PositionType) String() string {
 
 type entry struct {
 	LongName string
-	AbbrStd  string   `yaml:"abbr_std,omitempty"`
-	Abbr     []string `yaml:"abbr,omitempty"`
-	Lang     string   `yaml:"lang,omitempty"`
-	Lead     bool     `yaml:"lead,omitempty"`
-	Doc      string   `yaml:"doc,omitempty"`
+	AbbrStd  string   `yaml:"abbr_std"`
+	Abbr     []string `yaml:"abbr"`
+	Lang     string   `yaml:"lang"`
+	Lead     bool     `yaml:"lead"`
+	Doc      string   `yaml:"doc"`
 }
 
 type Remap map[string]*regexp.Regexp
 type dataset map[string]entry
 
 type Parser struct {
-	re     Remap
-	ds     *dataset
-	mode   Mode
-	reEnd  *regexp.Regexp
-	dbEnd  *hyperscan.BlockDatabase
-	scrEnd *hyperscan.Scratch
+	re      Remap
+	ds      *dataset
+	mode    Mode
+	reEnd   *regexp.Regexp
+	reBegin *regexp.Regexp
+	dbEnd   *hyperscan.BlockDatabase
+	scrEnd  *hyperscan.Scratch
 }
 
 type Context struct {
@@ -141,22 +147,23 @@ func compileREPatterns(ds *dataset, t PositionType, re Remap) string {
 				continue
 
 		*/
+		// If t is Begin, restrict to entries with 'Lead' set
+		if t == Begin && !e.Lead {
+			continue
+		}
 
 		// Add long to patterns
-		//patterns = append(patterns, escapeDes(long, re))
 		patterns = addPattern(patterns, long, re)
 
 		// Add AbbrStd to patterns
 		/*
 			if e.AbbrStd != "" {
-				//patterns = append(patterns, escapeDes(e.AbbrStd, re))
 				patterns = addPattern(patterns, e.AbbrStd, re)
 			}
 		*/
 
 		// Add Abbrs to patterns
 		for _, a := range e.Abbr {
-			//patterns = append(patterns, escapeDes(a, re))
 			patterns = addPattern(patterns, a, re)
 		}
 	}
@@ -241,11 +248,16 @@ func NewMode(mode Mode) (*Parser, error) {
 	switch mode {
 	case RE:
 		p.mode = RE
-		pattern := compileREPatterns(ds, End, re)
-		//fmt.Fprintf(os.Stderr, "+ REPattern: %s\n", pattern)
+		endPattern := compileREPatterns(ds, End, re)
+		//fmt.Fprintf(os.Stderr, "+ endPattern: %s\n", endPattern)
+		beginPattern := compileREPatterns(ds, Begin, re)
+		//fmt.Fprintf(os.Stderr, "+ beginPattern: %s\n", beginPattern)
 		p.reEnd = regexp.MustCompile(`(?i)` +
-			StrEndBefore + `(` + pattern + `)` + StrEndAfter + `$`)
+			StrEndBefore + `(` + endPattern + `)` + StrEndAfter + `$`)
 		//fmt.Fprintf(os.Stderr, "+ reEnd: %s\n", p.reEnd)
+		p.reBegin = regexp.MustCompile(`(?i)` +
+			`^` + StrBeginBefore + `(` + beginPattern + `)` + StrBeginAfter)
+		//fmt.Fprintf(os.Stderr, "+ reBegin: %s\n", p.reBegin)
 
 	case HS:
 		p.mode = HS
@@ -341,6 +353,17 @@ func (p *Parser) ParseRE(input string) (*Result, error) {
 		res.ShortName = norm.NFC.String(p.reEnd.ReplaceAllString(inputNFD, ""))
 		res.Designator = norm.NFC.String(matches[1])
 		res.Position = End
+		return &res, nil
+	}
+
+	// No final designator - check for a lead designator instead (e.g. ru, nl, etc.)
+	matches = p.reBegin.FindStringSubmatch(inputNFD)
+	if matches != nil {
+		res.Matched = true
+		res.ShortName = norm.NFC.String(p.reBegin.ReplaceAllString(inputNFD, ""))
+		res.Designator = norm.NFC.String(matches[1])
+		res.Position = Begin
+		return &res, nil
 	}
 
 	return &res, nil

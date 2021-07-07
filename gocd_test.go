@@ -37,7 +37,6 @@ func TestBasic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	//t.Log("parser instantiated - starting tests")
 
 	for _, tc := range tests {
 		res, err := p.Parse(tc.input)
@@ -104,7 +103,7 @@ func loadStripTests() []TestCase {
 }
 
 func TestFull(t *testing.T) {
-	tests := loadTests()
+	tests := loadStripTests()
 
 	p, err := NewMode(RE)
 	if err != nil {
@@ -114,29 +113,20 @@ func TestFull(t *testing.T) {
 	t.Log(len(tests), "tests loaded")
 	c := 0
 	for _, tc := range tests {
-		if tc.Position == "" {
-			t.Fatalf("missing position for test entry %q", tc.Name)
-		}
-		if tc.Skip || tc.SkipUnlessLang {
-			continue
-		}
-		// We don't handle LangContinua languages yet
-		if ok := LangContinua[tc.Lang]; ok {
-			continue
-		}
-		// We don't handle embedded matches yet
-		if tc.Position == "mid" {
-			continue
-		}
-
-		c++
 		res, err := p.Parse(tc.Name)
 		if err != nil {
 			t.Fatal(err)
 		}
 		if tc.Before != "" {
+			c++
 			assert.Equal(t, tc.Name, res.Input, "Input matches")
 			assert.Equal(t, tc.Before, res.ShortName, "ShortName matches")
+			assert.Equal(t, tc.Designator, res.Designator, "Designator matches")
+			assert.Equal(t, tc.Position, res.Position.String(), "Position matches")
+		} else if tc.After != "" {
+			c++
+			assert.Equal(t, tc.Name, res.Input, "Input matches")
+			assert.Equal(t, tc.After, res.ShortName, "ShortName matches")
 			assert.Equal(t, tc.Designator, res.Designator, "Designator matches")
 			assert.Equal(t, tc.Position, res.Position.String(), "Position matches")
 		}
