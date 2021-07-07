@@ -135,6 +135,13 @@ func compileREPatterns(ds *dataset, t PositionType, re Remap) string {
 	var patterns []string
 
 	for long, e := range *ds {
+		// FIXME: dev
+		/*
+			if long != "Company" {
+				continue
+
+		*/
+
 		// Add long to patterns
 		//patterns = append(patterns, escapeDes(long, re))
 		patterns = addPattern(patterns, long, re)
@@ -154,7 +161,12 @@ func compileREPatterns(ds *dataset, t PositionType, re Remap) string {
 		}
 	}
 
-	return strings.Join(patterns, "|")
+	pattern := strings.Join(patterns, "|")
+
+	//fmt.Fprintf(os.Stderr, "+ compiled %d %q patterns from dataset\n", len(patterns), t.String())
+	//fmt.Fprintf(os.Stderr, "++ %s\n", pattern)
+
+	return pattern
 }
 
 func compileHSPattern(des string, t PositionType, re Remap) *hyperscan.Pattern {

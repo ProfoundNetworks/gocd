@@ -1,12 +1,26 @@
 package gocd
 
 import (
+	"fmt"
 	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	yaml "gopkg.in/yaml.v2"
 )
+
+type TestCase struct {
+	Name           string `yaml:"name"`
+	Before         string `yaml:"before"`
+	After          string `yaml:"after"`
+	Designator     string `yaml:"des"`
+	DesignatorStd  string `yaml:"des_std"`
+	Lang           string `yaml:"lang"`
+	Position       string `yaml:"position"`
+	Skip           bool   `yaml:"skip"`
+	SkipUnlessLang bool   `yaml:"skip_unless_lang"`
+}
 
 func TestBasic(t *testing.T) {
 	tests := []struct {
@@ -42,28 +56,55 @@ func TestBasic(t *testing.T) {
 	}
 }
 
-func TestFull(t *testing.T) {
-	type TestCase struct {
-		Name           string `yaml:"name"`
-		Before         string `yaml:"before"`
-		After          string `yaml:"after"`
-		Designator     string `yaml:"des"`
-		DesignatorStd  string `yaml:"des_std"`
-		Lang           string `yaml:"lang"`
-		Position       string `yaml:"position"`
-		Skip           bool   `yaml:"skip"`
-		SkipUnlessLang bool   `yaml:"skip_unless_lang"`
-	}
+func fatal(msg string) {
+	fmt.Fprintln(os.Stderr, msg)
+	os.Exit(1)
+}
+
+func loadTests() []TestCase {
 	var tests []TestCase
 
 	data, err := ioutil.ReadFile("data/tests.yml")
 	if err != nil {
-		t.Fatal(err)
+		fatal(err.Error())
 	}
 	err = yaml.Unmarshal(data, &tests)
 	if err != nil {
-		t.Fatal(err)
+		fatal(err.Error())
 	}
+
+	return tests
+}
+
+func loadStripTests() []TestCase {
+	tests := loadTests()
+
+	// Strip currently unsupported tests
+	var tests2 []TestCase
+	for _, tc := range tests {
+		if tc.Position == "" {
+			fatal(fmt.Sprintf("missing position for test entry %q", tc.Name))
+		}
+		if tc.Skip || tc.SkipUnlessLang {
+			continue
+		}
+		// We don't handle LangContinua languages yet
+		if ok := LangContinua[tc.Lang]; ok {
+			continue
+		}
+		// We don't handle embedded matches yet
+		if tc.Position == "mid" {
+			continue
+		}
+
+		tests2 = append(tests2, tc)
+	}
+
+	return tests2
+}
+
+func TestFull(t *testing.T) {
+	tests := loadTests()
 
 	p, err := NewMode(RE)
 	if err != nil {
@@ -102,4 +143,52 @@ func TestFull(t *testing.T) {
 	}
 
 	t.Log(c, "tests completed")
+}
+
+func BenchmarkRE(b *testing.B) {
+	tests := loadStripTests()
+
+	p, err := NewMode(RE)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	// Benchmark loop, iterating over tests in tests
+	j := 0
+	for i := 0; i < b.N; i++ {
+		tc := tests[j]
+		_, err := p.Parse(tc.Name)
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		j++
+		if j >= len(tests) {
+			j = 0
+		}
+	}
+}
+
+func BenchmarkHS(b *testing.B) {
+	tests := loadStripTests()
+
+	p, err := NewMode(HS)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	// Benchmark loop, iterating over tests in tests
+	j := 0
+	for i := 0; i < b.N; i++ {
+		tc := tests[j]
+		_, err := p.Parse(tc.Name)
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		j++
+		if j >= len(tests) {
+			j = 0
+		}
+	}
 }
