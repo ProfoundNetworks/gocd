@@ -5,6 +5,7 @@ gocd is a go library for matching and parsing company designators
 
 //go:generate cp -p ../company_designator/company_designator.yml data
 //go:generate cp -p ../../cpan/Business-CompanyDesignator/t/t10/data.yml data/tests.yml
+//go:generate go run assets_generate.go
 
 package gocd
 
@@ -39,7 +40,7 @@ var EndDesignatorBlacklist = map[string]bool{
 }
 
 const (
-	DefaultDataset   = "data/company_designator.yml"
+	DefaultDataset   = "/company_designator.yml"
 	StrBeginBefore   = `^\pZ*\(?`
 	StrBeginAfter    = `\)?[\pZ\pP]\pZ*(.+?)\pZ*$`
 	StrEndBefore     = `^\pZ*(.+?)\pZ*[\pZ\pP]\pZ*\(?`
@@ -104,8 +105,12 @@ type Result struct {
 	Position   PositionType // The Designator position, if found
 }
 
-func loadDataset(filepath string) (*dataset, error) {
-	data, err := ioutil.ReadFile(filepath)
+func loadDataset() (*dataset, error) {
+	fh, err := assets.Open(DefaultDataset)
+	if err != nil {
+		return nil, err
+	}
+	data, err := ioutil.ReadAll(fh)
 	if err != nil {
 		return nil, err
 	}
@@ -224,7 +229,7 @@ func New() (*Parser, error) {
 	re["EndAfter"] = regexp.MustCompile(StrEndAfter)
 	p.re = re
 
-	ds, err := loadDataset(DefaultDataset)
+	ds, err := loadDataset()
 	if err != nil {
 		return nil, err
 	}
