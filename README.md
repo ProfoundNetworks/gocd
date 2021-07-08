@@ -19,6 +19,7 @@ Usage
 ```
 
 ```
+    // Instantiate a parser
     parser, err := gocd.New()
     if err != nil {
             log.Fatal(err)
@@ -27,7 +28,7 @@ Usage
     // Parse a company name string
     res := parser.Parse("Profound Networks LLC")
 
-    // Check parse results
+    // Report parse results
     fmt.Println(res.Input)      // Profound Networks LLC
     fmt.Println(res.Matched)    // true
     fmt.Println(res.ShortName)  // Profound Networks
