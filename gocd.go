@@ -9,13 +9,10 @@ gocd is a go library for matching and parsing company designators
 package gocd
 
 import (
-	"fmt"
 	"io/ioutil"
-	"os"
 	"regexp"
 	"strings"
 
-	"github.com/flier/gohs/hyperscan"
 	"golang.org/x/text/unicode/norm"
 	"gopkg.in/yaml.v2"
 )
@@ -62,14 +59,6 @@ const (
 	EndCont
 )
 
-type Mode int
-
-const (
-	Null Mode = iota
-	HS
-	RE
-)
-
 func (p PositionType) String() string {
 	return [...]string{"none", "begin", "end", "end_fallback", "end_cont"}[p]
 }
@@ -89,13 +78,10 @@ type dataset map[string]entry
 type Parser struct {
 	re            Remap
 	ds            *dataset
-	mode          Mode
 	reBegin       *regexp.Regexp
 	reEnd         *regexp.Regexp
 	reEndFallback *regexp.Regexp
 	reEndCont     *regexp.Regexp
-	dbEnd         *hyperscan.BlockDatabase
-	scrEnd        *hyperscan.Scratch
 }
 
 type Context struct {
@@ -218,54 +204,8 @@ func compileREPatterns(ds *dataset, t PositionType, re Remap) string {
 	return pattern
 }
 
-func compileHSPattern(des string, t PositionType, re Remap) *hyperscan.Pattern {
-	// Wrap des appropriately for position
-	var s string
-	switch t {
-	case End:
-		s = StrEndBefore + escapeDes(des, re) + StrEndAfter
-	default:
-		fmt.Fprintf(os.Stderr, "unsupported position %q\n", t.String())
-		os.Exit(1)
-	}
-
-	// Compile to hyperscan pattern
-	return hyperscan.NewPattern(s, hyperscan.Caseless|hyperscan.SomLeftMost)
-}
-
-func compileHSPatterns(ds *dataset, t PositionType, re Remap) []*hyperscan.Pattern {
-	var patterns []*hyperscan.Pattern
-
-	for k, e := range *ds {
-		// Add key to patterns
-		patterns = append(patterns, compileHSPattern(k, t, re))
-
-		// Add AbbrStd to patterns
-		/*
-			if e.AbbrStd != "" {
-				patterns = append(patterns, compileHSPattern(e.AbbrStd, t, re))
-			}
-		*/
-
-		// Add Abbrs to patterns
-		for _, a := range e.Abbr {
-			patterns = append(patterns, compileHSPattern(a, t, re))
-		}
-	}
-
-	//fmt.Fprintf(os.Stderr, "+ compiled %d %q patterns from dataset\n", len(patterns), t.String())
-	//fmt.Fprintf(os.Stderr, "++ %v\n", patterns)
-
-	return patterns
-}
-
 // New returns a new Parser using the default company designator dataset
 func New() (*Parser, error) {
-	return NewMode(RE)
-}
-
-// New returns a new Parser using the default company designator dataset
-func NewMode(mode Mode) (*Parser, error) {
 	p := Parser{}
 
 	re := make(Remap)
@@ -288,47 +228,27 @@ func NewMode(mode Mode) (*Parser, error) {
 	p.ds = ds
 
 	// Compile End patterns
-	switch mode {
-	case RE:
-		p.mode = RE
-		endPattern := compileREPatterns(ds, End, re)
-		//fmt.Fprintf(os.Stderr, "+ endPattern: %s\n", endPattern)
-		endFallbackPattern := compileREPatterns(ds, EndFallback, re)
-		//fmt.Fprintf(os.Stderr, "+ endFallbackPattern: %s\n", endFallbackPattern)
-		endContPattern := compileREPatterns(ds, EndCont, re)
-		//fmt.Fprintf(os.Stderr, "+ endContPattern: %s\n", endContPattern)
-		beginPattern := compileREPatterns(ds, Begin, re)
-		//fmt.Fprintf(os.Stderr, "+ beginPattern: %s\n", beginPattern)
+	endPattern := compileREPatterns(ds, End, re)
+	//fmt.Fprintf(os.Stderr, "+ endPattern: %s\n", endPattern)
+	endFallbackPattern := compileREPatterns(ds, EndFallback, re)
+	//fmt.Fprintf(os.Stderr, "+ endFallbackPattern: %s\n", endFallbackPattern)
+	endContPattern := compileREPatterns(ds, EndCont, re)
+	//fmt.Fprintf(os.Stderr, "+ endContPattern: %s\n", endContPattern)
+	beginPattern := compileREPatterns(ds, Begin, re)
+	//fmt.Fprintf(os.Stderr, "+ beginPattern: %s\n", beginPattern)
 
-		p.reEnd = regexp.MustCompile(`(?i)` +
-			StrEndBefore + `(` + endPattern + `)` + StrEndAfter)
-		//fmt.Fprintf(os.Stderr, "+ reEnd: %s\n", p.reEnd)
-		p.reEndFallback = regexp.MustCompile(`(?i)` +
-			StrEndBefore + `(` + endFallbackPattern + `)` + StrEndAfter)
-		//fmt.Fprintf(os.Stderr, "+ reEndFallback: %s\n", p.reEndFallback)
-		p.reBegin = regexp.MustCompile(`(?i)` +
-			StrBeginBefore + `(` + beginPattern + `)` + StrBeginAfter)
-		//fmt.Fprintf(os.Stderr, "+ reBegin: %s\n", p.reBegin)
-		p.reEndCont = regexp.MustCompile(`(?i)` +
-			StrEndContBefore + `(` + endContPattern + `)` + StrEndContAfter)
-		//fmt.Fprintf(os.Stderr, "+ reEndCont: %s\n", p.reEndCont)
-
-	case HS:
-		p.mode = HS
-		patterns := compileHSPatterns(ds, End, re)
-		//fmt.Fprintf(os.Stderr, "+ loading hyperscan db...\n")
-		db, err := hyperscan.NewBlockDatabase(patterns...)
-		if err != nil {
-			return nil, err
-		}
-		p.dbEnd = &db
-		//fmt.Fprintf(os.Stderr, "+ setting up scratch space...\n")
-		scratch, err := hyperscan.NewScratch(db)
-		if err != nil {
-			return nil, err
-		}
-		p.scrEnd = scratch
-	}
+	p.reEnd = regexp.MustCompile(`(?i)` +
+		StrEndBefore + `(` + endPattern + `)` + StrEndAfter)
+	//fmt.Fprintf(os.Stderr, "+ reEnd: %s\n", p.reEnd)
+	p.reEndFallback = regexp.MustCompile(`(?i)` +
+		StrEndBefore + `(` + endFallbackPattern + `)` + StrEndAfter)
+	//fmt.Fprintf(os.Stderr, "+ reEndFallback: %s\n", p.reEndFallback)
+	p.reBegin = regexp.MustCompile(`(?i)` +
+		StrBeginBefore + `(` + beginPattern + `)` + StrBeginAfter)
+	//fmt.Fprintf(os.Stderr, "+ reBegin: %s\n", p.reBegin)
+	p.reEndCont = regexp.MustCompile(`(?i)` +
+		StrEndContBefore + `(` + endContPattern + `)` + StrEndContAfter)
+	//fmt.Fprintf(os.Stderr, "+ reEndCont: %s\n", p.reEndCont)
 
 	return &p, nil
 }
@@ -337,63 +257,6 @@ func NewMode(mode Mode) (*Parser, error) {
 // designator dataset and returns a Result object containing match
 // results and any parsed components
 func (p *Parser) Parse(input string) (*Result, error) {
-	if p.mode == RE {
-		return p.ParseRE(input)
-	}
-
-	return p.ParseHyperscan(input)
-}
-
-// hyperscan match function - captures match elements to Context struct
-func hsMatchHandler(id uint, from, to uint64, flags uint, context interface{}) error {
-	ctx := context.(*Context)
-	if to > 0 {
-		ctx.from = from
-		ctx.to = to
-		ctx.match = ctx.in[from:to]
-		if from > 0 {
-			ctx.before = ctx.in[0:from]
-		}
-		if len(ctx.in) > int(to) {
-			ctx.before = ctx.in[to:]
-		}
-		//fmt.Fprintf(os.Stderr, "+ matched: from '%d', to '%d', des: %q\n", from, to, ctx.match)
-	}
-	return nil
-}
-
-func (p *Parser) ParseHyperscan(input string) (*Result, error) {
-	res := Result{Input: input, ShortName: input}
-	ctx := Context{}
-	ctx.in = []byte(input)
-
-	// Designators are usually final, so try end matching first
-	db := *(p.dbEnd)
-	err := db.Scan(ctx.in, p.scrEnd, hsMatchHandler, &ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// If we matched, update res accordingly
-	if len(ctx.match) > 0 {
-		res.Matched = true
-		res.ShortName = string(ctx.before)
-		res.Position = End
-
-		des := string(ctx.match)
-		des = p.re["EndBefore"].ReplaceAllString(des, "")
-		des = p.re["EndAfter"].ReplaceAllString(des, "")
-		// Handle corner case where a left-parenthesis is wrongly stripped
-		if p.re["RightParen"].MatchString(des) && !p.re["LeftParen"].MatchString(des) {
-			des = "(" + des
-		}
-		res.Designator = des
-	}
-
-	return &res, nil
-}
-
-func (p *Parser) ParseRE(input string) (*Result, error) {
 	inputNFD := norm.NFD.String(input)
 	inputNFC := norm.NFC.String(input)
 	res := Result{Input: inputNFC, ShortName: inputNFC}

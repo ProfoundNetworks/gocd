@@ -108,12 +108,12 @@ func loadStripTests() []TestCase {
 func TestFull(t *testing.T) {
 	tests := loadStripTests()
 
-	p, err := NewMode(RE)
+	p, err := New()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	fmt.Fprintf(os.Stderr, "+ %d tests loaded\n", len(tests))
+	//fmt.Fprintf(os.Stderr, "+ %d tests loaded\n", len(tests))
 	c := 0
 	for _, tc := range tests {
 		res, err := p.Parse(tc.Name)
@@ -134,38 +134,13 @@ func TestFull(t *testing.T) {
 			assert.Equal(t, tc.Position, res.Position.String(), "Position matches")
 		}
 	}
-
-	fmt.Fprintf(os.Stderr, "+ %d tests completed\n", c)
+	//fmt.Fprintf(os.Stderr, "+ %d tests completed\n", c)
 }
 
 func BenchmarkRE(b *testing.B) {
 	tests := loadStripTests()
 
-	p, err := NewMode(RE)
-	if err != nil {
-		b.Fatal(err)
-	}
-
-	// Benchmark loop, iterating over tests in tests
-	j := 0
-	for i := 0; i < b.N; i++ {
-		tc := tests[j]
-		_, err := p.Parse(tc.Name)
-		if err != nil {
-			b.Fatal(err)
-		}
-
-		j++
-		if j >= len(tests) {
-			j = 0
-		}
-	}
-}
-
-func BenchmarkHS(b *testing.B) {
-	tests := loadStripTests()
-
-	p, err := NewMode(HS)
+	p, err := New()
 	if err != nil {
 		b.Fatal(err)
 	}
