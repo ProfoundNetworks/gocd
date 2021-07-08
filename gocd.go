@@ -42,10 +42,10 @@ const (
 	DefaultDataset = "data/company_designator.yml"
 	// TODO: should the space/punct character class here have '+'?
 	StrBeginBefore   = `^\pZ*\(?`
-	StrBeginAfter    = `\)?[\pZ\pP]\pZ*(.*?)\pZ*$`
-	StrEndBefore     = `^\pZ*(.*?)\pZ*[\pZ\pP]\pZ*\(?`
+	StrBeginAfter    = `\)?[\pZ\pP]\pZ*(.+?)\pZ*$`
+	StrEndBefore     = `^\pZ*(.+?)\pZ*[\pZ\pP]\pZ*\(?`
 	StrEndAfter      = `\)?\pZ*$`
-	StrEndContBefore = `^\pZ*(.*?)\pZ*\(?`
+	StrEndContBefore = `^\pZ*(.+?)\pZ*\(?`
 	StrEndContAfter  = `\)?\pZ*$`
 )
 
