@@ -20,19 +20,36 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-var LangContinua = map[string]bool{"zh": true, "ja": true, "ko": true}
+// In languages with continuous scripts, we don't require a word
+// break ([\pZ\pP] before/after designators
+var LangContinua = map[string]bool{
+	"zh": true,
+	"ja": true,
+	"ko": true,
+}
+
+// The standard/perl RE engine in Go doesn't use POSIX-style
+// longest match semantics, which bites us where we have proper
+// subset alternates e.g. `Vennootschap` vs `Vennootschap Onder Firma`.
+// We can workaround this by blacklisting the shorter variant and
+// doing a second pass match if the first one fails.
+var EndDesignatorBlacklist = map[string]bool{
+	"Vennootschap": true, // vs. `Vennootschap Onder Firma`
+	"Co.":          true, // vs. `& Co.` (perhaps an RE2 bug?)
+	"Co. L.L.C.":   true, // vs. `& Co. L.L.C.` (ditto RE2 bug?)
+	"L.L.C.":       true, // vs. `Co. L.L.C.`
+	"L.C.":         true, // vs. `L.L.C.`
+}
 
 const (
 	DefaultDataset = "data/company_designator.yml"
 	// TODO: should the space/punct character class here have '+'?
-	StrBeginBefore = `^\s*\(?`
-	StrBeginAfter  = `\)?[\s\pP]\s*(.*?)\s*$`
-	StrEndBefore   = `^\s*(.*?)\s*[\s\pP]\s*\(?`
-	StrEndAfter    = `\)?\s*$`
-	// In languages with continuous scripts, we don't require a word
-	// break ([\s\pP] above) before designators
-	StrEndContBefore = `^\s*(.*?)\s*\(?`
-	StrEndContAfter  = `\)?\s*$`
+	StrBeginBefore   = `^\pZ*\(?`
+	StrBeginAfter    = `\)?[\pZ\pP]\pZ*(.*?)\pZ*$`
+	StrEndBefore     = `^\pZ*(.*?)\pZ*[\pZ\pP]\pZ*\(?`
+	StrEndAfter      = `\)?\pZ*$`
+	StrEndContBefore = `^\pZ*(.*?)\pZ*\(?`
+	StrEndContAfter  = `\)?\pZ*$`
 )
 
 type PositionType int
@@ -41,6 +58,7 @@ const (
 	None PositionType = iota
 	Begin
 	End
+	EndFallback
 	EndCont
 )
 
@@ -53,7 +71,7 @@ const (
 )
 
 func (p PositionType) String() string {
-	return [...]string{"none", "begin", "end", "end_cont"}[p]
+	return [...]string{"none", "begin", "end", "end_fallback", "end_cont"}[p]
 }
 
 type entry struct {
@@ -69,14 +87,15 @@ type Remap map[string]*regexp.Regexp
 type dataset map[string]entry
 
 type Parser struct {
-	re        Remap
-	ds        *dataset
-	mode      Mode
-	reBegin   *regexp.Regexp
-	reEnd     *regexp.Regexp
-	reEndCont *regexp.Regexp
-	dbEnd     *hyperscan.BlockDatabase
-	scrEnd    *hyperscan.Scratch
+	re            Remap
+	ds            *dataset
+	mode          Mode
+	reBegin       *regexp.Regexp
+	reEnd         *regexp.Regexp
+	reEndFallback *regexp.Regexp
+	reEndCont     *regexp.Regexp
+	dbEnd         *hyperscan.BlockDatabase
+	scrEnd        *hyperscan.Scratch
 }
 
 type Context struct {
@@ -116,15 +135,24 @@ func loadDataset(filepath string) (*dataset, error) {
 func escapeDes(des string, re Remap) string {
 	// Periods are treated as optional literals, with optional trailing commas
 	// and/or whitespace
-	des = re["Period"].ReplaceAllString(des, `\.?,?\s*`)
+	des = re["Period"].ReplaceAllString(des, `\.?,?\pZ*`)
 	// Embedded spaces can optionally include leading commas
-	des = re["Space"].ReplaceAllString(des, `,?\s+`)
+	des = re["Space"].ReplaceAllString(des, `,?\pZ+`)
 	// Escape parentheses
 	des = re["Paren"].ReplaceAllString(des, `\$1`)
 	return des
 }
 
-func addPattern(patterns []string, s string, re Remap) []string {
+func addPattern(patterns []string, s string, t PositionType, re Remap) []string {
+	// Skip End strings if they are blacklisted
+	if t == End && EndDesignatorBlacklist[s] {
+		return patterns
+	}
+	// Skip EndFallback strings *unless* they are blacklisted
+	if t == EndFallback && !EndDesignatorBlacklist[s] {
+		return patterns
+	}
+
 	// Normalise s to NFD before adding
 	s = norm.NFD.String(s)
 
@@ -151,7 +179,7 @@ func compileREPatterns(ds *dataset, t PositionType, re Remap) string {
 		/*
 			if long != "Company" {
 				continue
-
+			}
 		*/
 		// If t is Begin, restrict to entries with 'Lead' set
 		if t == Begin && !e.Lead {
@@ -163,12 +191,12 @@ func compileREPatterns(ds *dataset, t PositionType, re Remap) string {
 		}
 
 		// Add long to patterns
-		patterns = addPattern(patterns, long, re)
+		patterns = addPattern(patterns, long, t, re)
 
 		// Add AbbrStd to patterns
 		/*
 			if e.AbbrStd != "" {
-				patterns = addPattern(patterns, e.AbbrStd, re)
+				patterns = addPattern(patterns, e.AbbrStd, t, re)
 			}
 		*/
 
@@ -178,7 +206,7 @@ func compileREPatterns(ds *dataset, t PositionType, re Remap) string {
 			if t == EndCont && re["ASCII"].MatchString(a) {
 				continue
 			}
-			patterns = addPattern(patterns, a, re)
+			patterns = addPattern(patterns, a, t, re)
 		}
 	}
 
@@ -242,7 +270,7 @@ func NewMode(mode Mode) (*Parser, error) {
 
 	re := make(Remap)
 	re["Period"] = regexp.MustCompile(`\.`)
-	re["Space"] = regexp.MustCompile(`\s+`)
+	re["Space"] = regexp.MustCompile(`\pZ+`)
 	re["Paren"] = regexp.MustCompile("([()\uff08\uff09])")
 	re["LeftParen"] = regexp.MustCompile(`\(`)
 	re["RightParen"] = regexp.MustCompile(`\)`)
@@ -265,13 +293,19 @@ func NewMode(mode Mode) (*Parser, error) {
 		p.mode = RE
 		endPattern := compileREPatterns(ds, End, re)
 		//fmt.Fprintf(os.Stderr, "+ endPattern: %s\n", endPattern)
-		beginPattern := compileREPatterns(ds, Begin, re)
-		//fmt.Fprintf(os.Stderr, "+ beginPattern: %s\n", beginPattern)
+		endFallbackPattern := compileREPatterns(ds, EndFallback, re)
+		//fmt.Fprintf(os.Stderr, "+ endFallbackPattern: %s\n", endFallbackPattern)
 		endContPattern := compileREPatterns(ds, EndCont, re)
 		//fmt.Fprintf(os.Stderr, "+ endContPattern: %s\n", endContPattern)
+		beginPattern := compileREPatterns(ds, Begin, re)
+		//fmt.Fprintf(os.Stderr, "+ beginPattern: %s\n", beginPattern)
+
 		p.reEnd = regexp.MustCompile(`(?i)` +
 			StrEndBefore + `(` + endPattern + `)` + StrEndAfter)
 		//fmt.Fprintf(os.Stderr, "+ reEnd: %s\n", p.reEnd)
+		p.reEndFallback = regexp.MustCompile(`(?i)` +
+			StrEndBefore + `(` + endFallbackPattern + `)` + StrEndAfter)
+		//fmt.Fprintf(os.Stderr, "+ reEndFallback: %s\n", p.reEndFallback)
 		p.reBegin = regexp.MustCompile(`(?i)` +
 			StrBeginBefore + `(` + beginPattern + `)` + StrBeginAfter)
 		//fmt.Fprintf(os.Stderr, "+ reBegin: %s\n", p.reBegin)
@@ -372,6 +406,18 @@ func (p *Parser) ParseRE(input string) (*Result, error) {
 		res.Matched = true
 		res.ShortName = norm.NFC.String(matches[1])
 		res.Designator = norm.NFC.String(matches[2])
+		res.Position = End
+		return &res, nil
+	}
+
+	// No final designator - retry using the fallback endings we blacklisted
+	// for the initial run
+	matches = p.reEndFallback.FindStringSubmatch(inputNFD)
+	if matches != nil {
+		res.Matched = true
+		res.ShortName = norm.NFC.String(matches[1])
+		res.Designator = norm.NFC.String(matches[2])
+		// Note we deliberately use End here rather than EndFallback
 		res.Position = End
 		return &res, nil
 	}

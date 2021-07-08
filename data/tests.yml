@@ -430,6 +430,13 @@
   lang: en
   position: end
 -
+  name: 'Sears Roebuck Co.'
+  before: Sears Roebuck
+  des: 'Co.'
+  des_std: 'Co.'
+  lang: en
+  position: end
+-
   name: 'Hakuyosha   Company   Ltd.'
   before: Hakuyosha
   des: Company   Ltd.
