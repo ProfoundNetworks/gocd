@@ -19,8 +19,13 @@ Usage
 ```
 
 ```
+    parser, err := gocd.New()
+    if err != nil {
+            log.Fatal(err)
+    }
+
     // Parse a company name string
-    res := gocd.Parse("Profound Networks LLC")
+    res := parser.Parse("Profound Networks LLC")
 
     // Check parse results
     fmt.Println(res.Input)      // Profound Networks LLC
@@ -30,8 +35,10 @@ Usage
     fmt.Println(res.Position)   // end
 ```
 
-If no designators are found, `res.Matched` will be false, and
-`res.ShortName` will equal `res.Input`.
+If no designators are found, `res.Matched` will be false,
+`res.ShortName` will equal `res.Input`, and `res.Position` will
+be "none".
+
 
 Status
 ------
