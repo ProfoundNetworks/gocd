@@ -39,8 +39,7 @@ var EndDesignatorBlacklist = map[string]bool{
 }
 
 const (
-	DefaultDataset = "data/company_designator.yml"
-	// TODO: should the space/punct character class here have '+'?
+	DefaultDataset   = "data/company_designator.yml"
 	StrBeginBefore   = `^\pZ*\(?`
 	StrBeginAfter    = `\)?[\pZ\pP]\pZ*(.+?)\pZ*$`
 	StrEndBefore     = `^\pZ*(.+?)\pZ*[\pZ\pP]\pZ*\(?`
@@ -53,14 +52,17 @@ type PositionType int
 
 const (
 	None PositionType = iota
-	Begin
 	End
 	EndFallback
 	EndCont
+	Begin
+	BeginFallback
 )
 
 func (p PositionType) String() string {
-	return [...]string{"none", "begin", "end", "end_fallback", "end_cont"}[p]
+	return [...]string{
+		"none", "end", "end_fallback", "end_cont", "begin", "begin_fallback",
+	}[p]
 }
 
 type entry struct {
@@ -76,12 +78,13 @@ type Remap map[string]*regexp.Regexp
 type dataset map[string]entry
 
 type Parser struct {
-	re            Remap
-	ds            *dataset
-	reBegin       *regexp.Regexp
-	reEnd         *regexp.Regexp
-	reEndFallback *regexp.Regexp
-	reEndCont     *regexp.Regexp
+	re              Remap
+	ds              *dataset
+	reEnd           *regexp.Regexp
+	reEndFallback   *regexp.Regexp
+	reEndCont       *regexp.Regexp
+	reBegin         *regexp.Regexp
+	reBeginFallback *regexp.Regexp
 }
 
 type Context struct {
@@ -130,12 +133,12 @@ func escapeDes(des string, re Remap) string {
 }
 
 func addPattern(patterns []string, s string, t PositionType, re Remap) []string {
-	// Skip End strings if they are blacklisted
-	if t == End && EndDesignatorBlacklist[s] {
+	// Skip Begin/End strings if they are blacklisted
+	if (t == End || t == Begin) && EndDesignatorBlacklist[s] {
 		return patterns
 	}
-	// Skip EndFallback strings *unless* they are blacklisted
-	if t == EndFallback && !EndDesignatorBlacklist[s] {
+	// Skip BeginFallback/EndFallback strings *unless* they are blacklisted
+	if (t == EndFallback || t == BeginFallback) && !EndDesignatorBlacklist[s] {
 		return patterns
 	}
 
@@ -236,6 +239,8 @@ func New() (*Parser, error) {
 	//fmt.Fprintf(os.Stderr, "+ endContPattern: %s\n", endContPattern)
 	beginPattern := compileREPatterns(ds, Begin, re)
 	//fmt.Fprintf(os.Stderr, "+ beginPattern: %s\n", beginPattern)
+	beginFallbackPattern := compileREPatterns(ds, BeginFallback, re)
+	//fmt.Fprintf(os.Stderr, "+ beginFallbackPattern: %s\n", beginFallbackPattern)
 
 	p.reEnd = regexp.MustCompile(`(?i)` +
 		StrEndBefore + `(` + endPattern + `)` + StrEndAfter)
@@ -243,12 +248,15 @@ func New() (*Parser, error) {
 	p.reEndFallback = regexp.MustCompile(`(?i)` +
 		StrEndBefore + `(` + endFallbackPattern + `)` + StrEndAfter)
 	//fmt.Fprintf(os.Stderr, "+ reEndFallback: %s\n", p.reEndFallback)
-	p.reBegin = regexp.MustCompile(`(?i)` +
-		StrBeginBefore + `(` + beginPattern + `)` + StrBeginAfter)
-	//fmt.Fprintf(os.Stderr, "+ reBegin: %s\n", p.reBegin)
 	p.reEndCont = regexp.MustCompile(`(?i)` +
 		StrEndContBefore + `(` + endContPattern + `)` + StrEndContAfter)
 	//fmt.Fprintf(os.Stderr, "+ reEndCont: %s\n", p.reEndCont)
+	p.reBegin = regexp.MustCompile(`(?i)` +
+		StrBeginBefore + `(` + beginPattern + `)` + StrBeginAfter)
+	//fmt.Fprintf(os.Stderr, "+ reBegin: %s\n", p.reBegin)
+	p.reBeginFallback = regexp.MustCompile(`(?i)` +
+		StrBeginBefore + `(` + beginFallbackPattern + `)` + StrBeginAfter)
+	//fmt.Fprintf(os.Stderr, "+ reBeginFallback: %s\n", p.reBeginFallback)
 
 	return &p, nil
 }
@@ -274,13 +282,13 @@ func (p *Parser) Parse(input string) (*Result, error) {
 	}
 
 	// No final designator - retry using the fallback endings we blacklisted
-	// for the initial run
+	// for the previous run
 	matches = p.reEndFallback.FindStringSubmatch(inputNFD)
 	if matches != nil {
 		res.Matched = true
 		res.ShortName = norm.NFC.String(matches[1])
 		res.Designator = norm.NFC.String(matches[2])
-		// Note we deliberately use End here rather than EndFallback
+		// Note we use End here rather than EndFallback
 		res.Position = End
 		return &res, nil
 	}
@@ -294,7 +302,7 @@ func (p *Parser) Parse(input string) (*Result, error) {
 		res.Matched = true
 		res.ShortName = norm.NFC.String(matches[1])
 		res.Designator = norm.NFC.String(matches[2])
-		// Note we deliberately use End here rather than EndCont
+		// Note we use End here rather than EndCont
 		res.Position = End
 		return &res, nil
 	}
@@ -305,6 +313,18 @@ func (p *Parser) Parse(input string) (*Result, error) {
 		res.Matched = true
 		res.ShortName = norm.NFC.String(matches[2])
 		res.Designator = norm.NFC.String(matches[1])
+		res.Position = Begin
+		return &res, nil
+	}
+
+	// No lead designator either - retry using the fallback endings we
+	// blacklisted for the previous run
+	matches = p.reBeginFallback.FindStringSubmatch(inputNFD)
+	if matches != nil {
+		res.Matched = true
+		res.ShortName = norm.NFC.String(matches[2])
+		res.Designator = norm.NFC.String(matches[1])
+		// Note we use Begin here rather than BeginFallback
 		res.Position = Begin
 		return &res, nil
 	}
