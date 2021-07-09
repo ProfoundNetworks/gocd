@@ -412,28 +412,28 @@
   name: Sears Roebuck and Company
   before: Sears Roebuck
   des: and Company
-  des_std: and Company
+  des_std: Company
   lang: en
   position: end
 -
   name: Sears Roebuck And Co.
   before: Sears Roebuck
   des: And Co.
-  des_std: and Co.
+  des_std: Company
   lang: en
   position: end
 -
   name: 'Sears Roebuck & Co.'
   before: Sears Roebuck
   des: '& Co.'
-  des_std: '& Co.'
+  des_std: Company
   lang: en
   position: end
 -
   name: 'Sears Roebuck Co.'
   before: Sears Roebuck
   des: 'Co.'
-  des_std: 'Co.'
+  des_std: Company
   lang: en
   position: end
 -
@@ -668,6 +668,27 @@
   lang: en
   position: end
 -
+  name: Abu Dhabi Islamic Bank P.J.S.C
+  before: Abu Dhabi Islamic Bank
+  des: P.J.S.C
+  des_std: PJSC
+  lang: en
+  position: end
+-
+  name: AJMAN BANK /P.S.C
+  before: AJMAN BANK
+  des: P.S.C
+  des_std: PJSC
+  lang: en
+  position: end
+-
+  name: Abu Dhabi Distribution Company PSC
+  before: Abu Dhabi Distribution Company
+  des: PSC
+  des_std: PJSC
+  lang: en
+  position: end
+-
   name: Astra Industrial Group Co. PJSC
   before: Astra Industrial Group
   des: Co. PJSC
@@ -688,6 +709,36 @@
   des_std: gGmbH
   lang: de
   position: end
+-
+  name: Siess, v. Loë Co. (GmbH & Co. KG)
+  before: Siess, v. Loë Co
+  des: GmbH & Co. KG
+  des_std: GmbH & Co. KG
+  lang: de
+  position: end
+-
+  name: Siess, v. Loë Co. (GmbH & Co.KG)
+  before: Siess, v. Loë Co
+  des: GmbH & Co.KG
+  des_std: GmbH & Co. KG
+  lang: de
+  position: end
+  skip: Y
+-
+  name: MSV Duisburg GmbH & Co. KGaA
+  before: MSV Duisburg
+  des: GmbH & Co. KGaA
+  des_std: GmbH & Co. KGaA
+  lang: de
+  position: end
+-
+  name: MSV Duisburg GmbH & Co.KGaA
+  before: MSV Duisburg
+  des: GmbH & Co.KGaA
+  des_std: GmbH & Co. KGaA
+  lang: de
+  position: end
+  skip: Y
 -
   name: TELEFONICA DE ESPANA S.A.U.
   before: TELEFONICA DE ESPANA

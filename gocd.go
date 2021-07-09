@@ -33,10 +33,10 @@ var LangContinua = map[string]bool{
 // doing a second pass match if the first one fails.
 var EndDesignatorBlacklist = map[string]bool{
 	"Vennootschap": true, // vs. `Vennootschap Onder Firma`
-	"Co.":          true, // vs. `& Co.` (perhaps an RE2 bug?)
-	"Co. L.L.C.":   true, // vs. `& Co. L.L.C.` (ditto RE2 bug?)
 	"L.L.C.":       true, // vs. `Co. L.L.C.`
 	"L.C.":         true, // vs. `L.L.C.`
+	"Co.":          true, // vs. `& Co.` (ampersand matched as punct)
+	"Co. L.L.C.":   true, // vs. `& Co. L.L.C.` (ampersand matched as punct)
 }
 
 const (

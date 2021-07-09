@@ -91,6 +91,7 @@ Commanditaire vennootschap:
   lang: nl
   lead: Y
 Company:
+  abbr_std: Company
   abbr:
     - Co.
     - '& Co.'
@@ -466,8 +467,9 @@ Proprietary Limited:
 Public Joint Stock Company:
   abbr_std: PJSC
   abbr:
-    - PJSC
-    - Co. PJSC
+    - P.J.S.C.
+    - P.S.C.
+    - Co. P.J.S.C.
   lang: en
 Public Limited Company:
   abbr:
