@@ -947,6 +947,41 @@
   lang: bg
   position: end
 -
+  name: iSTILE EOOD
+  before: iSTILE
+  des: EOOD
+  des_std: EOOD
+  lang: bg
+  position: end
+-
+  name: Аполоуайн ЕООД
+  before: Аполоуайн
+  des: ЕООД
+  des_std: ЕООД
+  lang: bg
+  position: end
+-
+  name: ОУЕЙСЪРВИЗ ООД
+  before: ОУЕЙСЪРВИЗ
+  des: ООД
+  des_std: ООД
+  lang: bg
+  position: end
+-
+  name: Yambol Komers OOD
+  before: Yambol Komers
+  des: OOD
+  des_std: OOD
+  lang: bg
+  position: end
+-
+  name: Cash Credit EAD
+  before: Cash Credit
+  des: EAD
+  des_std: EAD
+  lang: bg
+  position: end
+-
   name: Farlep-Invest PrJSC
   before: Farlep-Invest
   des: PrJSC
@@ -1072,3 +1107,10 @@
   des_std: AT
   lang: uk
   position: begin
+-
+  name: Co-Filling Services
+  before: Co-Filling Services
+  des: ''
+  des_std: ''
+  lang: en
+  position: none

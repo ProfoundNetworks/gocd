@@ -175,8 +175,8 @@ func compileREPatterns(ds *dataset, t PositionType, re Remap) string {
 				continue
 			}
 		*/
-		// If t is Begin, restrict to entries with 'Lead' set
-		if t == Begin && !e.Lead {
+		// If t is Begin or BeginFallback, restrict to entries with 'Lead' set
+		if (t == Begin || t == BeginFallback) && !e.Lead {
 			continue
 		}
 		// If t is EndCont, restrict to languages in LangContinua
