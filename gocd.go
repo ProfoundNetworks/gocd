@@ -219,14 +219,13 @@ func New() (*Parser, error) {
 	re := make(Remap)
 	re["Period"] = regexp.MustCompile(`\.`)
 	re["Space"] = regexp.MustCompile(`\pZ+`)
+	re["SpaceDotSpace"] = regexp.MustCompile(`\pZ+\.\pZ*`)
 	re["Paren"] = regexp.MustCompile("([()\uff08\uff09])")
+	re["ParenSpace"] = regexp.MustCompile("\\pZ*[()\uff08\uff09]\\pZ*")
 	re["LeftParen"] = regexp.MustCompile(`\(`)
 	re["RightParen"] = regexp.MustCompile(`\)`)
 	re["UnicodeMarks"] = regexp.MustCompile(`\pM`)
 	re["ASCII"] = regexp.MustCompile("^[[:ascii:]]+$")
-	// HS-only below
-	re["EndBefore"] = regexp.MustCompile(StrEndBefore)
-	re["EndAfter"] = regexp.MustCompile(StrEndAfter)
 	p.re = re
 
 	ds, err := loadDataset()
@@ -276,6 +275,10 @@ func (p *Parser) Parse(input string) (*Result, error) {
 	ctx := Context{}
 	ctx.in = []byte(inputNFD)
 
+	// Minimal preprocessing
+	// Try and normalise strange dot-space pattern with initials e.g. P .J . S . C
+	inputNFD = p.re["SpaceDotSpace"].ReplaceAllString(inputNFD, ". ")
+
 	// Designators are usually final, so try end matching first
 	matches := p.reEnd.FindStringSubmatch(inputNFD)
 	if matches != nil {
@@ -301,7 +304,7 @@ func (p *Parser) Parse(input string) (*Result, error) {
 	// No final designator - retry without a word break for the subset of
 	// languages that use continuous scripts (see LangContinua above)
 	// Strip all parentheses for continuous script matches
-	inputNFDStripped := p.re["Paren"].ReplaceAllString(inputNFD, "")
+	inputNFDStripped := p.re["ParenSpace"].ReplaceAllString(inputNFD, "")
 	matches = p.reEndCont.FindStringSubmatch(inputNFDStripped)
 	if matches != nil {
 		res.Matched = true

@@ -1121,3 +1121,10 @@
   des_std: s.r.o.
   lang: cz
   position: end
+-
+  name: ARABTEC HOLDING - P .J . S . C
+  before: ARABTEC HOLDING
+  des: P. J. S. C
+  des_std: PJSC
+  lang: en
+  position: end
