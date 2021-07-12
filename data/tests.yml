@@ -1114,3 +1114,10 @@
   des_std: ''
   lang: en
   position: none
+-
+  name: ITMAN Czech s.r..o.
+  before: ITMAN Czech
+  des: s.r..o.
+  des_std: s.r.o.
+  lang: cz
+  position: end

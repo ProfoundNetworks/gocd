@@ -129,7 +129,7 @@ func loadDataset() (*dataset, error) {
 func escapeDes(des string, re Remap) string {
 	// Periods are treated as optional literals, with optional trailing commas
 	// and/or whitespace
-	des = re["Period"].ReplaceAllString(des, `\.?,?\pZ*`)
+	des = re["Period"].ReplaceAllString(des, `\.*,?\pZ*`)
 	// Embedded spaces can optionally include leading commas
 	des = re["Space"].ReplaceAllString(des, `,?\pZ+`)
 	// Escape parentheses
