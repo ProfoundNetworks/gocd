@@ -1119,7 +1119,7 @@
   before: ITMAN Czech
   des: s.r..o.
   des_std: s.r.o.
-  lang: cz
+  lang: cs
   position: end
 -
   name: ARABTEC HOLDING - P .J . S . C
@@ -1127,4 +1127,39 @@
   des: P. J. S. C
   des_std: PJSC
   lang: en
+  position: end
+-
+  name: Theorema Società a responsabilità limitata
+  before: Theorema
+  des: Società a responsabilità limitata
+  des_std: Società a Responsabilità Limitata
+  lang: it
+  position: end
+-
+  name: Theorema-Società a Responsabilità Limitata
+  before: Theorema
+  des: Società a Responsabilità Limitata
+  des_std: Società a Responsabilità Limitata
+  lang: it
+  position: end
+-
+  name: MW Logistic spółka z ograniczoną odpowiedzialnością
+  before: MW Logistic
+  des: spółka z ograniczoną odpowiedzialnością
+  des_std: spółka z ograniczoną odpowiedzialnością
+  lang: pl
+  position: end
+-
+  name: MW LOGISTIC SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ
+  before: MW LOGISTIC
+  des: SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ
+  des_std: spółka z ograniczoną odpowiedzialnością
+  lang: pl
+  position: end
+-
+  name: CIVIL Biztonsági Szolgálat Zártkörűen Működő Részvénytársaság
+  before: CIVIL Biztonsági Szolgálat
+  des: Zártkörűen Működő Részvénytársaság
+  des_std: Zártkörűen Működő Részvénytársaság
+  lang: hu
   position: end
