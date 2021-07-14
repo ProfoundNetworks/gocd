@@ -126,10 +126,13 @@ func loadDataset() (*dataset, error) {
 	return &ds, nil
 }
 
+// escapeDes does some standard escaping of designators
 func escapeDes(des string, re Remap) string {
 	// Periods are treated as optional literals, with optional trailing commas
 	// and/or whitespace
 	des = re["Period"].ReplaceAllString(des, `\.*,?\pZ*`)
+	// Allow ampersands to match more broadly
+	des = re["Ampersand"].ReplaceAllString(des, `\s*[&+]\s*`)
 	// Embedded spaces can optionally include leading commas
 	des = re["Space"].ReplaceAllString(des, `,?\pZ+`)
 	// Escape parentheses
@@ -220,6 +223,7 @@ func New() (*Parser, error) {
 	re["Period"] = regexp.MustCompile(`\.`)
 	re["Space"] = regexp.MustCompile(`\pZ+`)
 	re["SpaceDotSpace"] = regexp.MustCompile(`\pZ+\.\pZ*`)
+	re["Ampersand"] = regexp.MustCompile(`\pZ*&\pZ*`)
 	re["Paren"] = regexp.MustCompile("([()\uff08\uff09])")
 	re["ParenSpace"] = regexp.MustCompile("\\pZ*[()\uff08\uff09]\\pZ*")
 	re["LeftParen"] = regexp.MustCompile(`\(`)
