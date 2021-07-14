@@ -586,21 +586,21 @@
 -
   name: ADVANSOFT (L.L.C)
   before: ADVANSOFT
-  des: L.L.C
+  des: (L.L.C)
   des_std: LLC
   lang: en
   position: end
 -
   name: ADVANSOFT (LLC)
   before: ADVANSOFT
-  des: LLC
+  des: (LLC)
   des_std: LLC
   lang: en
   position: end
 -
   name: ADVANSOFT (L. L. C. )
   before: ADVANSOFT
-  des: 'L. L. C. '
+  des: '(L. L. C. )'
   des_std: LLC
   lang: en
   position: end
@@ -614,7 +614,7 @@
 -
   name: Abdulla & Hamad Al Ghurair Investment (L L C)
   before: Abdulla & Hamad Al Ghurair Investment
-  des: L L C
+  des: (L L C)
   des_std: LLC
   lang: en
   position: end
@@ -710,17 +710,24 @@
   lang: de
   position: end
 -
+  name: Krauss-Maffei Wegmann GmbH und Co. KG
+  before: Krauss-Maffei Wegmann
+  des: GmbH und Co. KG
+  des_std: KG
+  lang: de
+  position: end
+-
   name: Siess, v. Loë Co. (GmbH & Co. KG)
   before: Siess, v. Loë Co
-  des: GmbH & Co. KG
-  des_std: GmbH & Co. KG
+  des: (GmbH & Co. KG)
+  des_std: KG
   lang: de
   position: end
 -
   name: Siess, v. Loë Co. (GmbH & Co.KG)
   before: Siess, v. Loë Co
-  des: GmbH & Co.KG
-  des_std: GmbH & Co. KG
+  des: (GmbH & Co.KG)
+  des_std: KG
   lang: de
   position: end
   skip: Y
@@ -1135,6 +1142,7 @@
   des_std: Società a Responsabilità Limitata
   lang: it
   position: end
+  skip: Y
 -
   name: Theorema-Società a Responsabilità Limitata
   before: Theorema
@@ -1142,6 +1150,7 @@
   des_std: Società a Responsabilità Limitata
   lang: it
   position: end
+  skip: Y
 -
   name: MW Logistic spółka z ograniczoną odpowiedzialnością
   before: MW Logistic
@@ -1149,6 +1158,7 @@
   des_std: spółka z ograniczoną odpowiedzialnością
   lang: pl
   position: end
+  skip: Y
 -
   name: MW LOGISTIC SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ
   before: MW LOGISTIC
@@ -1156,6 +1166,7 @@
   des_std: spółka z ograniczoną odpowiedzialnością
   lang: pl
   position: end
+  skip: Y
 -
   name: CIVIL Biztonsági Szolgálat Zártkörűen Működő Részvénytársaság
   before: CIVIL Biztonsági Szolgálat
@@ -1163,10 +1174,11 @@
   des_std: Zártkörűen Működő Részvénytársaság
   lang: hu
   position: end
+  skip: Y
 -
-  name: 'Stadler Edelstahl GmbH&Co.'
+  name: 'Stadler Edelstahl GmbH & Co.'
   before: Stadler Edelstahl
-  des: 'GmbH&Co.'
+  des: 'GmbH & Co.'
   des_std: GmbH
   lang: de
   position: end
@@ -1175,5 +1187,19 @@
   before: Stadler Edelstahl
   des: GmbH+Co.
   des_std: GmbH
+  lang: de
+  position: end
+-
+  name: Otterbach Medien KG GmbH & Co
+  before: Otterbach Medien
+  des: KG GmbH & Co
+  des_std: KG
+  lang: de
+  position: end
+-
+  name: ESW Software Warda KG (GmbH & Co.)
+  before: ESW Software Warda
+  des: KG (GmbH & Co.)
+  des_std: KG
   lang: de
   position: end

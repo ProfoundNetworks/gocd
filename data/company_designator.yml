@@ -283,8 +283,10 @@ Kommanditaktiengesellschaft:
     - KomAG
   lang: de
 Kommanditgesellschaft:
+  abbr_std: KG
   abbr:
     - KG
+    - KG GmbH & Co.
     - 'GmbH & Co. KG'
     - 'GmbH und Co. KG'
     - 'mbH & Co. KG'
