@@ -41,12 +41,12 @@ var EndDesignatorBlacklist = map[string]bool{
 
 const (
 	DefaultDataset   = "/company_designator.yml"
-	StrBeginBefore   = `^\pZ*\(?`
-	StrBeginAfter    = `\)?[\pZ\pP]\pZ*(.+?)\pZ*$`
-	StrEndBefore     = `^\pZ*(.+?)\pZ*[\pZ\pP]\pZ*\(?`
-	StrEndAfter      = `\)?\pZ*$`
-	StrEndContBefore = `^\pZ*(.+?)\pZ*\(?`
-	StrEndContAfter  = `\)?\pZ*$`
+	StrBeginBefore   = `^\pZ*`
+	StrBeginAfter    = `[\pZ\pP]\pZ*(.+?)\pZ*$`
+	StrEndBefore     = `^\pZ*(.+?)\pZ*([\pZ\pP])\pZ*`
+	StrEndAfter      = `\pZ*$`
+	StrEndContBefore = `^\pZ*(.+?)\pZ*`
+	StrEndContAfter  = `\pZ*$`
 )
 
 type PositionType int
@@ -128,15 +128,14 @@ func loadDataset() (*dataset, error) {
 
 // escapeDes does some standard escaping of designators
 func escapeDes(des string, re Remap) string {
-	// Periods are treated as optional literals, with optional trailing commas
-	// and/or whitespace
-	des = re["Period"].ReplaceAllString(des, `\.*,?\pZ*`)
 	// Allow ampersands to match more broadly
 	des = re["Ampersand"].ReplaceAllString(des, `\s*[&+]\s*`)
-	// Embedded spaces can optionally include leading commas
-	des = re["Space"].ReplaceAllString(des, `,?\pZ+`)
-	// Escape parentheses
+	// Escape parentheses in the designator itself
 	des = re["Paren"].ReplaceAllString(des, `\$1`)
+	// Periods are treated as optional literals, with optional trailing stff
+	des = re["PeriodSpace"].ReplaceAllString(des, `\.*[\pZ,()-]*`)
+	// Interpret embedded spaces in designators pretty liberally
+	des = re["Space"].ReplaceAllString(des, `[\pZ,()-]+`)
 	return des
 }
 
@@ -206,8 +205,12 @@ func compileREPatterns(ds *dataset, t PositionType, re Remap) string {
 			patterns = addPattern(patterns, a, t, re)
 		}
 	}
+	if len(patterns) == 0 {
+		return ""
+	}
 
-	pattern := strings.Join(patterns, "|")
+	// Join patterns as alternates, and always allow outer parentheses
+	pattern := `\(?(?:` + strings.Join(patterns, "|") + `)\)?`
 
 	//fmt.Fprintf(os.Stderr, "+ compiled %d %q patterns from dataset\n", len(patterns), t.String())
 	//fmt.Fprintf(os.Stderr, "++ %s\n", pattern)
@@ -220,14 +223,12 @@ func New() (*Parser, error) {
 	p := Parser{}
 
 	re := make(Remap)
-	re["Period"] = regexp.MustCompile(`\.`)
+	re["PeriodSpace"] = regexp.MustCompile(`\.\pZ*`)
 	re["Space"] = regexp.MustCompile(`\pZ+`)
 	re["SpaceDotSpace"] = regexp.MustCompile(`\pZ+\.\pZ*`)
 	re["Ampersand"] = regexp.MustCompile(`\pZ*&\pZ*`)
 	re["Paren"] = regexp.MustCompile("([()\uff08\uff09])")
 	re["ParenSpace"] = regexp.MustCompile("\\pZ*[()\uff08\uff09]\\pZ*")
-	re["LeftParen"] = regexp.MustCompile(`\(`)
-	re["RightParen"] = regexp.MustCompile(`\)`)
 	re["UnicodeMarks"] = regexp.MustCompile(`\pM`)
 	re["ASCII"] = regexp.MustCompile("^[[:ascii:]]+$")
 	p.re = re
@@ -250,23 +251,43 @@ func New() (*Parser, error) {
 	beginFallbackPattern := compileREPatterns(ds, BeginFallback, re)
 	//fmt.Fprintf(os.Stderr, "+ beginFallbackPattern: %s\n", beginFallbackPattern)
 
-	p.reEnd = regexp.MustCompile(`(?i)` +
-		StrEndBefore + `(` + endPattern + `)` + StrEndAfter)
-	//fmt.Fprintf(os.Stderr, "+ reEnd: %s\n", p.reEnd)
-	p.reEndFallback = regexp.MustCompile(`(?i)` +
-		StrEndBefore + `(` + endFallbackPattern + `)` + StrEndAfter)
-	//fmt.Fprintf(os.Stderr, "+ reEndFallback: %s\n", p.reEndFallback)
-	p.reEndCont = regexp.MustCompile(`(?i)` +
-		StrEndContBefore + `(` + endContPattern + `)` + StrEndContAfter)
-	//fmt.Fprintf(os.Stderr, "+ reEndCont: %s\n", p.reEndCont)
-	p.reBegin = regexp.MustCompile(`(?i)` +
-		StrBeginBefore + `(` + beginPattern + `)` + StrBeginAfter)
+	if endPattern != "" {
+		p.reEnd = regexp.MustCompile(`(?i)` +
+			StrEndBefore + `(` + endPattern + `)` + StrEndAfter)
+		//fmt.Fprintf(os.Stderr, "+ reEnd: %s\n", p.reEnd)
+	}
+	if endFallbackPattern != "" {
+		p.reEndFallback = regexp.MustCompile(`(?i)` +
+			StrEndBefore + `(` + endFallbackPattern + `)` + StrEndAfter)
+		//fmt.Fprintf(os.Stderr, "+ reEndFallback: %s\n", p.reEndFallback)
+	}
+	if endContPattern != "" {
+		p.reEndCont = regexp.MustCompile(`(?i)` +
+			StrEndContBefore + `(` + endContPattern + `)` + StrEndContAfter)
+		//fmt.Fprintf(os.Stderr, "+ reEndCont: %s\n", p.reEndCont)
+	}
+	if beginPattern != "" {
+		p.reBegin = regexp.MustCompile(`(?i)` +
+			StrBeginBefore + `(` + beginPattern + `)` + StrBeginAfter)
+	}
 	//fmt.Fprintf(os.Stderr, "+ reBegin: %s\n", p.reBegin)
-	p.reBeginFallback = regexp.MustCompile(`(?i)` +
-		StrBeginBefore + `(` + beginFallbackPattern + `)` + StrBeginAfter)
-	//fmt.Fprintf(os.Stderr, "+ reBeginFallback: %s\n", p.reBeginFallback)
+	if beginFallbackPattern != "" {
+		p.reBeginFallback = regexp.MustCompile(`(?i)` +
+			StrBeginBefore + `(` + beginFallbackPattern + `)` + StrBeginAfter)
+		//fmt.Fprintf(os.Stderr, "+ reBeginFallback: %s\n", p.reBeginFallback)
+	}
 
 	return &p, nil
+}
+
+// checkDesPunct handles the reEnd situation where our breaking
+// punctuation character before the designator might be something
+// we should include in the designator e.g. '&' or '('
+func (p *Parser) checkDesPunct(punct, des string) string {
+	if punct != "(" {
+		return des
+	}
+	return punct + des
 }
 
 // Parse matches an input company name string against the company
@@ -284,61 +305,74 @@ func (p *Parser) Parse(input string) (*Result, error) {
 	inputNFD = p.re["SpaceDotSpace"].ReplaceAllString(inputNFD, ". ")
 
 	// Designators are usually final, so try end matching first
-	matches := p.reEnd.FindStringSubmatch(inputNFD)
-	if matches != nil {
-		res.Matched = true
-		res.ShortName = norm.NFC.String(matches[1])
-		res.Designator = norm.NFC.String(matches[2])
-		res.Position = End
-		return &res, nil
+	var matches []string
+	if p.reEnd != nil {
+		matches = p.reEnd.FindStringSubmatch(inputNFD)
+		if matches != nil {
+			//fmt.Printf("+ reEnd matches: %q %q %q\n", matches[1], matches[2], matches[3])
+			res.Matched = true
+			res.ShortName = norm.NFC.String(matches[1])
+			res.Designator = norm.NFC.String(p.checkDesPunct(matches[2], matches[3]))
+			res.Position = End
+			return &res, nil
+		}
 	}
 
 	// No final designator - retry using the fallback endings we blacklisted
 	// for the previous run
-	matches = p.reEndFallback.FindStringSubmatch(inputNFD)
-	if matches != nil {
-		res.Matched = true
-		res.ShortName = norm.NFC.String(matches[1])
-		res.Designator = norm.NFC.String(matches[2])
-		// Note we use End here rather than EndFallback
-		res.Position = End
-		return &res, nil
+	if p.reEndFallback != nil {
+		matches = p.reEndFallback.FindStringSubmatch(inputNFD)
+		if matches != nil {
+			//fmt.Printf("+ reEndFallback matches: %q %q %q\n", matches[1], matches[2], matches[3])
+			res.Matched = true
+			res.ShortName = norm.NFC.String(matches[1])
+			res.Designator = norm.NFC.String(p.checkDesPunct(matches[2], matches[3]))
+			// Note we use End here rather than EndFallback
+			res.Position = End
+			return &res, nil
+		}
 	}
 
 	// No final designator - retry without a word break for the subset of
 	// languages that use continuous scripts (see LangContinua above)
 	// Strip all parentheses for continuous script matches
-	inputNFDStripped := p.re["ParenSpace"].ReplaceAllString(inputNFD, "")
-	matches = p.reEndCont.FindStringSubmatch(inputNFDStripped)
-	if matches != nil {
-		res.Matched = true
-		res.ShortName = norm.NFC.String(matches[1])
-		res.Designator = norm.NFC.String(matches[2])
-		// Note we use End here rather than EndCont
-		res.Position = End
-		return &res, nil
+	if p.reEndCont != nil {
+		inputNFDStripped := p.re["ParenSpace"].ReplaceAllString(inputNFD, "")
+		matches = p.reEndCont.FindStringSubmatch(inputNFDStripped)
+		if matches != nil {
+			res.Matched = true
+			res.ShortName = norm.NFC.String(matches[1])
+			res.Designator = norm.NFC.String(matches[2])
+			// Note we use End here rather than EndCont
+			res.Position = End
+			return &res, nil
+		}
 	}
 
 	// No final designator - check for a lead designator instead (e.g. ru, nl, etc.)
-	matches = p.reBegin.FindStringSubmatch(inputNFD)
-	if matches != nil {
-		res.Matched = true
-		res.ShortName = norm.NFC.String(matches[2])
-		res.Designator = norm.NFC.String(matches[1])
-		res.Position = Begin
-		return &res, nil
+	if p.reBegin != nil {
+		matches = p.reBegin.FindStringSubmatch(inputNFD)
+		if matches != nil {
+			res.Matched = true
+			res.ShortName = norm.NFC.String(matches[2])
+			res.Designator = norm.NFC.String(matches[1])
+			res.Position = Begin
+			return &res, nil
+		}
 	}
 
 	// No lead designator either - retry using the fallback endings we
 	// blacklisted for the previous run
-	matches = p.reBeginFallback.FindStringSubmatch(inputNFD)
-	if matches != nil {
-		res.Matched = true
-		res.ShortName = norm.NFC.String(matches[2])
-		res.Designator = norm.NFC.String(matches[1])
-		// Note we use Begin here rather than BeginFallback
-		res.Position = Begin
-		return &res, nil
+	if p.reBeginFallback != nil {
+		matches = p.reBeginFallback.FindStringSubmatch(inputNFD)
+		if matches != nil {
+			res.Matched = true
+			res.ShortName = norm.NFC.String(matches[2])
+			res.Designator = norm.NFC.String(matches[1])
+			// Note we use Begin here rather than BeginFallback
+			res.Position = Begin
+			return &res, nil
+		}
 	}
 
 	return &res, nil
