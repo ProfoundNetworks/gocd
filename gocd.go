@@ -210,7 +210,7 @@ func compileREPatterns(ds *dataset, t PositionType, re Remap) string {
 	}
 
 	// Join patterns as alternates, and always allow outer parentheses
-	pattern := `\(?(?:` + strings.Join(patterns, "|") + `)\)?`
+	pattern := `\(?` + `(?:` + strings.Join(patterns, "|") + `)` + `\)?`
 
 	//fmt.Fprintf(os.Stderr, "+ compiled %d %q patterns from dataset\n", len(patterns), t.String())
 	//fmt.Fprintf(os.Stderr, "++ %s\n", pattern)
