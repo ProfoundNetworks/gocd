@@ -1203,3 +1203,31 @@
   des_std: KG
   lang: de
   position: end
+-
+  name: Euro Live Technologies SIA
+  before: Euro Live Technologies
+  des: SIA
+  des_std: SIA
+  lang: lv
+  position: end
+-
+  name: Euro Live Technologies AS
+  before: Euro Live Technologies
+  des: AS
+  des_std: AS
+  lang: lv
+  position: end
+-
+  name: SIA Euro Live Technologies
+  before: Euro Live Technologies
+  des: SIA
+  des_std: SIA
+  lang: lv
+  position: begin
+-
+  name: AS Euro Live Technologies
+  before: Euro Live Technologies
+  des: AS
+  des_std: AS
+  lang: lv
+  position: begin
