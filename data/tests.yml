@@ -549,6 +549,13 @@
   lang: pl
   position: end
 -
+  name: 4system Polska Sp. z.o.o
+  before: 4system Polska
+  des: Sp. z.o.o
+  des_std: Sp. z o.o.
+  lang: pl
+  position: end
+-
   name: Jagdwirtschafts-, Förderungs- und Betriebsges.m.b.H.
   before: Jagdwirtschafts-, Förderungs- und Betriebsges
   des: m.b.H.
