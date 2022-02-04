@@ -528,6 +528,20 @@
   lang: pl
   position: end
 -
+  name: PPBrothers sp. z.o.o.
+  before: PPBrothers
+  des: sp. z.o.o.
+  des_std: Sp. z o.o.
+  lang: pl
+  position: end
+-
+  name: PPBrothers sp z o.o.
+  before: PPBrothers
+  des: sp z o.o.
+  des_std: Sp. z o.o.
+  lang: pl
+  position: end
+-
   name: PPBrothers sp.zo.o.
   before: PPBrothers
   des: sp.zo.o.

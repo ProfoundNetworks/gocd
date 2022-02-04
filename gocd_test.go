@@ -22,7 +22,7 @@ type TestCase struct {
 	SkipUnlessLang bool   `yaml:"skip_unless_lang"`
 }
 
-func TestBasic(t *testing.T) {
+func TestGOCDBasic(t *testing.T) {
 	tests := []struct {
 		input string
 		short string
@@ -105,7 +105,7 @@ func loadStripTests() []TestCase {
 	return tests2
 }
 
-func TestFull(t *testing.T) {
+func TestGOCDFull(t *testing.T) {
 	tests := loadStripTests()
 
 	p, err := New()
