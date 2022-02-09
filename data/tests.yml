@@ -1252,3 +1252,31 @@
   des_std: AS
   lang: lv
   position: begin
+-
+  name: ALATRON LEREVEIL S.A R.L.
+  before: ALATRON LEREVEIL
+  des: S.A R.L.
+  des_std: S.à r.l.
+  lang: fr
+  position: end
+-
+  name: ALATRON LERÉVEIL S.À R.L.
+  before: ALATRON LERÉVEIL
+  des: S.À R.L.
+  des_std: S.à r.l.
+  lang: fr
+  position: end
+-
+  name: ALATRON LERÉVEIL S.à.r.l.
+  before: ALATRON LERÉVEIL
+  des: S.à.r.l.
+  des_std: S.à r.l.
+  lang: fr
+  position: end
+-
+  name: ALATRON LERÉVEIL SRL
+  before: ALATRON LERÉVEIL
+  des: SRL
+  des_std: S.à r.l.
+  lang: fr
+  position: end
