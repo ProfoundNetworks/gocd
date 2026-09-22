@@ -4,8 +4,13 @@ gocd is a go library for matching and parsing company designators
 */
 
 //go:generate cp -p ../company_designator/company_designator.yml data
-//go:generate cp -p ../../cpan/Business-CompanyDesignator/t/t10/data.yml data/tests.yml
 //go:generate go run assets_generate.go
+
+// NB: data/tests.yml is maintained here, NOT copied from the perl
+// Business-CompanyDesignator distribution. The two have diverged - the perl
+// data.yml uses list-valued `lang` and integer `skip_unless_lang`, neither of
+// which unmarshals into the Go TestCase struct - so re-adding a `cp` of it
+// here breaks `go test` with `cannot unmarshal !!seq into string`.
 
 package gocd
 
