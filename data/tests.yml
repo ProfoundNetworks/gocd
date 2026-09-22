@@ -1280,3 +1280,66 @@
   des_std: S.à r.l.
   lang: fr
   position: end
+-
+  name: 株式会社ロイヤルオート
+  after: ロイヤルオート
+  des: 株式会社
+  des_std: 株式会社
+  lang: ja
+  position: begin
+-
+  name: 株式会社 ロイヤルオート
+  after: ロイヤルオート
+  des: 株式会社
+  des_std: 株式会社
+  lang: ja
+  position: begin
+-
+  name: 有限会社ムラタ
+  after: ムラタ
+  des: 有限会社
+  des_std: 有限会社
+  lang: ja
+  position: begin
+-
+  name: 合同会社ネクストサービス
+  after: ネクストサービス
+  des: 合同会社
+  des_std: 合同会社
+  lang: ja
+  position: begin
+-
+  name: 合資会社大阪商店
+  after: 大阪商店
+  des: 合資会社
+  des_std: 合資会社
+  lang: ja
+  position: begin
+-
+  name: 合名会社大阪商店
+  after: 大阪商店
+  des: 合名会社
+  des_std: 合名会社
+  lang: ja
+  position: begin
+-
+  name: 주식회사하늘엔
+  after: 하늘엔
+  des: 주식회사
+  des_std: 주식회사
+  lang: ko
+  position: begin
+-
+  name: 주식회사 하늘엔
+  after: 하늘엔
+  des: 주식회사
+  des_std: 주식회사
+  lang: ko
+  position: begin
+-
+  name: 유한회사로얄오토
+  after: 로얄오토
+  des: 유한회사
+  des_std: 유한회사
+  lang: ko
+  position: begin

@@ -847,30 +847,35 @@ Vennootschap onder firma:
     - Kabushiki Kaisha
   doc: stock company
   lang: ja
+  lead: Y
 '有限会社':
   abbr:
     - Y.K.
     - Yugen Kaisha
   doc: limited company
   lang: ja
+  lead: Y
 '合同会社':
   abbr:
     - G.K.
     - Godo Kaisha
   doc: amalgamated company
   lang: ja
+  lead: Y
 '合資会社':
   abbr:
     - GSK
     - Goshi Kaisha
   doc: limited partnership
   lang: ja
+  lead: Y
 '合名会社':
   abbr:
     - GMK
     - Gomei Kaisha
   doc: general partnership
   lang: ja
+  lead: Y
 '任意組合':
   abbr:
     - NK
@@ -897,8 +902,9 @@ Vennootschap onder firma:
   abbr:
     - '株式會社'
     - Jusik Hoesa
-  doc: ~plc (UK) (found no instances in leading position?)
+  doc: ~plc (UK)
   lang: ko
+  lead: Y
 '유한회사':
   abbr:
     - '有限會社'
@@ -909,15 +915,17 @@ Vennootschap onder firma:
 '합자회사':
   abbr:
     - '合資會社'
-    - Hapja Hoesa'
+    - Hapja Hoesa
   doc: limited partnership corporation
   lang: ko
+  lead: Y
 '합명회사':
   abbr:
     - '合名會社'
     - Hapmyoung Hoesa
   doc: general partnership corporation
   lang: ko
+  lead: Y
 'شركة':
   doc: Company
   lang: ar

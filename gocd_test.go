@@ -31,6 +31,22 @@ func TestGOCDBasic(t *testing.T) {
 	}{
 		{"Profound Networks LLC", "Profound Networks", "LLC", "end"},
 		{"Profound Networks LLC (Seattle)", "", "", ""},
+		// Continuous-script leading designators (ja 前株, ko)
+		{"株式会社ロイヤルオート", "ロイヤルオート", "株式会社", "begin"},
+		{"有限会社ムラタ", "ムラタ", "有限会社", "begin"},
+		{"주식회사하늘엔", "하늘엔", "주식회사", "begin"},
+		// ...but a trailing designator still wins over a leading one
+		{"ロイヤルオート株式会社", "ロイヤルオート", "株式会社", "end"},
+		// Romanised CJK abbreviations must NOT match in leading position:
+		// these are English acronyms, not 前株 company names.
+		{"GSK or licensor", "", "", ""},
+		{"GK Software SE Germany", "", "", ""},
+		{"YK Stone Center", "", "", ""},
+		{"KK Group", "", "", ""},
+		{"K.K. Industries", "", "", ""},
+		{"GMK Keycap", "", "", ""},
+		// Chinese designators are suffix-only and must stay that way
+		{"有限公司ロイヤルオート", "", "", ""},
 	}
 
 	p, err := New()

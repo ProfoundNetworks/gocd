@@ -52,6 +52,10 @@ const (
 	StrEndAfter      = `\pZ*$`
 	StrEndContBefore = `^\pZ*(.+?)\pZ*`
 	StrEndContAfter  = `\pZ*$`
+	// Continuous-script leading designators have no word break after
+	// them, so (unlike StrBeginAfter) we require no [\pZ\pP] separator
+	StrBeginContBefore = `^\pZ*`
+	StrBeginContAfter  = `\pZ*(.+?)\pZ*$`
 )
 
 type PositionType int
@@ -63,11 +67,13 @@ const (
 	EndCont
 	Begin
 	BeginFallback
+	BeginCont
 )
 
 func (p PositionType) String() string {
 	return [...]string{
 		"none", "end", "end_fallback", "end_cont", "begin", "begin_fallback",
+		"begin_cont",
 	}[p]
 }
 
@@ -91,6 +97,7 @@ type Parser struct {
 	reEndCont       *regexp.Regexp
 	reBegin         *regexp.Regexp
 	reBeginFallback *regexp.Regexp
+	reBeginCont     *regexp.Regexp
 }
 
 type Context struct {
@@ -186,6 +193,10 @@ func compileREPatterns(ds *dataset, t PositionType, re Remap) string {
 		if (t == Begin || t == BeginFallback) && !e.Lead {
 			continue
 		}
+		// If t is BeginCont, restrict to 'Lead' entries in continuous languages
+		if t == BeginCont && (!e.Lead || !LangContinua[e.Lang]) {
+			continue
+		}
 		// If t is EndCont, restrict to languages in LangContinua
 		if t == EndCont && !LangContinua[e.Lang] {
 			continue
@@ -204,7 +215,16 @@ func compileREPatterns(ds *dataset, t PositionType, re Remap) string {
 		// Add Abbrs to patterns
 		for _, a := range e.Abbr {
 			// Only add non-ASCII abbreviations as continuous
-			if t == EndCont && re["ASCII"].MatchString(a) {
+			if (t == EndCont || t == BeginCont) && re["ASCII"].MatchString(a) {
+				continue
+			}
+			// Romanised abbreviations of continuous-script designators are
+			// conventionally written as suffixes, even in languages whose
+			// native form also leads (ja 前株). Admitting them in leading
+			// position matches English acronyms instead of companies e.g.
+			// `GSK` (GlaxoSmithKline), `GK Software SE`, `YK Stone Center`.
+			if (t == Begin || t == BeginFallback) &&
+				LangContinua[e.Lang] && re["ASCII"].MatchString(a) {
 				continue
 			}
 			patterns = addPattern(patterns, a, t, re)
@@ -254,6 +274,7 @@ func New() (*Parser, error) {
 	beginPattern := compileREPatterns(ds, Begin, re)
 	//fmt.Fprintf(os.Stderr, "+ beginPattern: %s\n", beginPattern)
 	beginFallbackPattern := compileREPatterns(ds, BeginFallback, re)
+	beginContPattern := compileREPatterns(ds, BeginCont, re)
 	//fmt.Fprintf(os.Stderr, "+ beginFallbackPattern: %s\n", beginFallbackPattern)
 
 	if endPattern != "" {
@@ -280,6 +301,11 @@ func New() (*Parser, error) {
 		p.reBeginFallback = regexp.MustCompile(`(?i)` +
 			StrBeginBefore + `(` + beginFallbackPattern + `)` + StrBeginAfter)
 		//fmt.Fprintf(os.Stderr, "+ reBeginFallback: %s\n", p.reBeginFallback)
+	}
+	if beginContPattern != "" {
+		p.reBeginCont = regexp.MustCompile(`(?i)` +
+			StrBeginContBefore + `(` + beginContPattern + `)` + StrBeginContAfter)
+		//fmt.Fprintf(os.Stderr, "+ reBeginCont: %s\n", p.reBeginCont)
 	}
 
 	return &p, nil
@@ -375,6 +401,22 @@ func (p *Parser) Parse(input string) (*Result, error) {
 			res.ShortName = norm.NFC.String(matches[2])
 			res.Designator = norm.NFC.String(matches[1])
 			// Note we use Begin here rather than BeginFallback
+			res.Position = Begin
+			return &res, nil
+		}
+	}
+
+	// No lead designator with a word break - retry without one for the
+	// subset of languages that use continuous scripts (e.g. ja 前株 names
+	// like 株式会社ロイヤルオート). Strip all parentheses, as for reEndCont.
+	if p.reBeginCont != nil {
+		inputNFDStripped := p.re["ParenSpace"].ReplaceAllString(inputNFD, "")
+		matches = p.reBeginCont.FindStringSubmatch(inputNFDStripped)
+		if matches != nil {
+			res.Matched = true
+			res.ShortName = norm.NFC.String(matches[2])
+			res.Designator = norm.NFC.String(matches[1])
+			// Note we use Begin here rather than BeginCont
 			res.Position = Begin
 			return &res, nil
 		}
